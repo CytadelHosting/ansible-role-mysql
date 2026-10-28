@@ -2,7 +2,7 @@
 
 ## Pourquoi ce fork existe
 
-Le role upstream `geerlingguy/ansible-role-mysql` 6.3.1 :
+Le role upstream `geerlingguy/ansible-role-mysql` (toujours le cas en 6.5.0) :
 
 - force `/var/log/mysql` en `0755` et ecrase le `02750` du paquet Debian (setgid, groupe `adm`)
 - relance le secure-install des qu'un upgrade de paquet rend `mysql_install_packages` vrai : `ALTER USER` vers `unix_socket`, reecriture de `/root/.my.cnf`, suppression des comptes `root` distants, `DROP DATABASE test`
@@ -13,7 +13,7 @@ Il n'y a pas de variable upstream pour ces deux comportements.
 
 - Upstream source: `https://github.com/geerlingguy/ansible-role-mysql`
 - Fork source: `https://github.com/CytadelHosting/ansible-role-mysql`
-- Collection consommatrice: `cytadel.webserver` (`roles.lock.yaml`, `role_name: geerlingguy_mysql`)
+- Collection consommatrice: `cytadel.webserver` (`roles.lock.yaml`, `role_name: CytadelHosting_mysql`)
 
 Patches a conserver :
 
@@ -37,7 +37,7 @@ git remote -v
 git fetch upstream --tags
 git fetch origin
 git checkout cytadel-release
-git merge --no-ff 6.3.1
+git merge --no-ff 6.5.0
 ```
 
 Apres le merge, verifier :
@@ -52,15 +52,14 @@ Apres le merge, verifier :
 
 Le compteur repart a 1 quand la base upstream change.
 
-- `v6.3.1-cytadel.1` premiere release sur le tag upstream `6.3.1`
-- `v6.3.1-cytadel.2` deuxieme patch sur la meme base
-- `v6.4.0-cytadel.1` prochaine base upstream
+- `v6.5.0-cytadel.1` premiere release sur le tag upstream `6.5.0`
+- `v6.5.0-cytadel.2` deuxieme patch sur la meme base
+- `v6.6.0-cytadel.1` prochaine base upstream
 
 ```bash
-git tag -a v6.3.1-cytadel.1 -m "Fork release based on upstream 6.3.1 (Cytadel patchset #1)"
+git tag -a v6.5.0-cytadel.1 -m "Fork release based on upstream 6.5.0 (Cytadel patchset #1)"
 git push -u origin cytadel-release
-git push origin master
-git push origin v6.3.1-cytadel.1
+git push origin v6.5.0-cytadel.1
 ```
 
 ## Integration dans la collection
@@ -68,12 +67,12 @@ git push origin v6.3.1-cytadel.1
 `roles.lock.yaml` :
 
 ```yaml
-- role_name: "geerlingguy_mysql"
+- role_name: "CytadelHosting_mysql"
   src: "git@github.com:CytadelHosting/ansible-role-mysql.git"
-  version: "v6.3.1-cytadel.1"
+  version: "v6.5.0-cytadel.1"
 ```
 
-Le `role_name` ne change pas : les playbooks continuent d'appeler `cytadel.webserver.geerlingguy_mysql`.
+Le playbook appelle `cytadel.webserver.CytadelHosting_mysql`.
 
 ```bash
 make -f scripts/Makefile validate-lock
