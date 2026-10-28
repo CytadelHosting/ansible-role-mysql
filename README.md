@@ -4,6 +4,8 @@
 
 Installs and configures MySQL or MariaDB server on RHEL/CentOS or Debian/Ubuntu servers.
 
+Cytadel fork of geerlingguy/ansible-role-mysql. Debian keeps the package log directory mode `02750`. `mysql_secure_installation: false` leaves root authentication, `/root/.my.cnf`, anonymous users and the `test` database untouched. See `README-synchro-upstream.md`.
+
 ## Requirements
 
 No special requirements; note that this role requires root access, so either run it in a playbook with a global `become: true`, or invoke the role in your playbook like:
@@ -37,9 +39,18 @@ The MySQL root user account details.
 
 ```yaml
 mysql_root_password_update: false
+mysql_secure_installation: ~
 ```
 
 Whether to force update the MySQL root user's password. By default, this role will only change the root user's password when MySQL is first configured. You can force an update by setting this to `true`.
+
+`mysql_secure_installation` gates root authentication changes, `/root/.my.cnf`, removal of remote root accounts, anonymous users and the `test` database. Left null, it follows upstream: run on package install or when `mysql_root_password_update` is true. Set it to `false` on an already installed server.
+
+```yaml
+mysql_log_dir_mode: "02750"   # Debian default in this fork, "0755" elsewhere
+```
+
+Mode of the directory containing `mysql_log_error`. Debian packages ship `/var/log/mysql` as `02750` (setgid, group `adm`). Override per host if needed.
 
 > Note: If you get an error like `ERROR 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)` after a failed or interrupted playbook run, this usually means the root password wasn't originally updated to begin with. Try either removing  the `.my.cnf` file inside the configured `mysql_user_home` or updating it and setting `password=''` (the insecure default password). Run the playbook again, with `mysql_root_password_update` set to `yes`, and the setup should complete.
 

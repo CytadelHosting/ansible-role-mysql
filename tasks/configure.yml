@@ -57,7 +57,7 @@
     state: directory
     owner: mysql
     group: "{{ mysql_log_file_group }}"
-    mode: "0755"
+    mode: "{{ mysql_log_dir_mode }}"
   when:
     - mysql_log_error | default('') | length > 0
     - mysql_log_error != 'syslog'

@@ -35,6 +35,12 @@
     mysql_log_error: "{{ __mysql_log_error }}"
   when: mysql_log_error is not defined
 
+# Upstream hardcodes 0755, which drops the Debian package setgid mode.
+- name: Define mysql_log_dir_mode.
+  ansible.builtin.set_fact:
+    mysql_log_dir_mode: "{{ __mysql_log_dir_mode | default('0755') }}"
+  when: mysql_log_dir_mode is not defined
+
 - name: Define mysql_syslog_tag.
   ansible.builtin.set_fact:
     mysql_syslog_tag: "{{ __mysql_syslog_tag }}"

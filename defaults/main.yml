@@ -14,6 +14,12 @@ mysql_root_password: root
 mysql_root_password_update: false
 mysql_user_password_update: false
 
+# null = upstream behavior: secure-install when packages are installed
+# or when mysql_root_password_update is true.
+# false = do not touch root auth, /root/.my.cnf, anonymous users or the test database,
+# including after a package upgrade.
+mysql_secure_installation: ~
+
 mysql_enabled_on_startup: true
 
 # Whether my.cnf should be updated on every run.
