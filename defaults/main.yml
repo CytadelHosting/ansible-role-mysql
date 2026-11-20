@@ -123,7 +123,14 @@ mysql_log: ""
 
 mysql_config_include_files: []
 #  - src: path/relative/to/playbook/file.cnf
-#  - { src: path/relative/to/playbook/anotherfile.cnf, force: true }
+#  - src: path/relative/to/playbook/anotherfile.cnf.j2
+#    type: template
+#    dest_dir: mariadb.conf.d
+#    dest_name: 90-anotherfile.cnf
+#    force: true
+#  - src: path/relative/to/playbook/static.cnf
+#    type: file
+#    dest_dir: conf.d
 
 # Databases.
 mysql_databases: []

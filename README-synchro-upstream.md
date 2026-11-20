@@ -19,6 +19,7 @@ Patches a conserver :
 
 - `mysql_log_dir_mode` / `__mysql_log_dir_mode: "02750"` sur Debian
 - `mysql_secure_installation` (null = comportement upstream, `false` = ne rien muter)
+- `mysql_config_include_files`: `type` (`template` ou `file`), `dest_dir` (`conf.d`, `mariadb.conf.d` ou chemin absolu), `dest_name` (defaut: basename sans `.j2`)
 
 ## Remotes
 

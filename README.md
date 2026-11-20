@@ -65,9 +65,10 @@ Whether MySQL should be enabled on startup.
 ```yaml
 mysql_config_file: *default value depends on OS*
 mysql_config_include_dir: *default value depends on OS*
+mysql_config_mariadb_include_dir: /etc/mysql/mariadb.conf.d   # Debian and Arch only
 ```
 
-The main my.cnf configuration file and include directory.
+The main my.cnf configuration file and the default include directory. Debian and Arch also read `/etc/mysql/mariadb.conf.d`, exposed as `mysql_config_mariadb_include_dir`. RedHat keeps a single directory (`/etc/my.cnf.d`).
 
 ```yaml
 overwrite_global_mycnf: true
@@ -79,7 +80,24 @@ Whether the global my.cnf should be overwritten each time this role is run. Sett
 mysql_config_include_files: []
 ```
 
-A list of files that should override the default global my.cnf. Each item in the array requires a "src" parameter which is a path to a file. An optional "force" parameter can force the file to be updated each time ansible runs.
+A list of files that should override the default global my.cnf. Each item requires `src`.
+
+- `type`: `template` (default, Jinja) or `file` (copied as-is). Lookup paths are unchanged: templates are resolved from the role or playbook `templates/` directory, files from `files/`.
+- `dest_dir`: `conf.d` (default, `mysql_config_include_dir`), `mariadb.conf.d` (`mysql_config_mariadb_include_dir`), or an absolute directory.
+- `dest_name`: destination filename. Default is the source basename with a trailing `.j2` removed. `foo.cnf.j2` becomes `foo.cnf`. A name without `.j2` is kept as-is, so existing entries do not change path.
+- `force`: replace an existing destination on every run. Default `false`.
+
+```yaml
+mysql_config_include_files:
+  - src: path/relative/to/playbook/file.cnf
+  - src: path/relative/to/playbook/tuning.cnf.j2
+    dest_dir: mariadb.conf.d
+    dest_name: 90-tuning.cnf
+    force: true
+  - src: path/relative/to/playbook/pmm.cnf
+    type: file
+    dest_dir: conf.d
+```
 
 ```yaml
 mysql_databases: []
