@@ -150,9 +150,21 @@ mysql_max_connections: 801
 |---|---|
 | `50-server.cnf`, `50-client.cnf`, `50-mysqld_safe.cnf`, `60-galera.cnf` | Package files. Every commented option is driven by a variable (list in `defaults/main.yml`), and so is every **active** option the package sets (`pid-file`, `bind-address`, `expire_logs_days`, `character-set-server`, `collation-server`): the package value stays unless the project sets the variable. |
 | `50-mysql-clients.cnf` (10.11) / `50-mariadb-clients.cnf` (11.8) | Package files, no option to drive (kept for completeness, the package renamed it in 11.x). |
-| `70-cytadel-extra.cnf` | Role-owned. Carries the `my.cnf.j2` settings the package include files do not know (`port`, `sql_mode`, `slow_query_log`, memory and InnoDB settings, `[mysqldump]`...). Options of the package are never repeated here. |
+| `70-cytadel-extra.cnf` | Role-owned. Carries the `my.cnf.j2` settings the package include files do not know (`port`, `sql_mode`, `slow_query_log`, memory and InnoDB settings, `[mysqldump]`...). An option the package already drives **in the same section** is never repeated here; the same option name in **another section** is written here with its own variable (see below). |
 
 Same variable names as `my.cnf.j2` wherever the option exists there (`mysql_max_connections`, `mysql_table_open_cache`, `mysql_log`...), otherwise `mysql_<option>`. `table_cache` is a deprecated alias of `table_open_cache`: the active line is written `table_open_cache`. Options duplicated in `60-galera.cnf` use a `mysql_galera_` prefix so they do not leak into the server group.
+
+**One variable per (section, option).** The same option name in two sections is two distinct settings (the last file read wins per option, whatever the section), so each one has its own variable and a variable never writes two sections:
+
+| Option | Section | Variable |
+|---|---|---|
+| `bind-address` | `[mysqld]` / `[mariadbd]` · `[galera]` | `mysql_bind_address` · `mysql_galera_bind_address` |
+| `binlog_format` | `[mysqld]` (70) · `[galera]` | `mysql_binlog_format` · `mysql_galera_binlog_format` |
+| `innodb_flush_log_at_trx_commit` | `[mysqld]` (70) · `[galera]` | `mysql_innodb_flush_log_at_trx_commit` · `mysql_galera_innodb_flush_log_at_trx_commit` |
+| `max_allowed_packet` | `[mysqld]` · `[mysqldump]` | `mysql_max_allowed_packet` · `mysql_mysqldump_max_allowed_packet` |
+| `ssl_cert`, `ssl_key` | `[mysqld]` · `[client]` | `mysql_ssl_cert`, `mysql_ssl_key` · `mysql_client_ssl_cert`, `mysql_client_ssl_key` |
+
+If a project wants the same value everywhere, it sets both variables. Mind that the server reads `[galera]` after `[mysqld]` within `60-galera.cnf` but `70-cytadel-extra.cnf` is read last: when both `[mysqld]` (70) and `[galera]` are set to different values, 70 wins.
 
 Two template sets cover the differences between releases: `10.11` (Debian 12, every 10.x) and `11.8` (Debian 13, reference). They differ by the server group (`[mysqld]` / `[mariadbd]`), `character-set-server` (set active by the 10.11 package only), and the clients file name. To add a release, copy the package files into a new `templates/mariadb_includes/<version>/`, replace the commented options by `{{ m.opt(...) }}` / `{{ m.flag(...) }}` calls and the active ones by `{{ m.act(...) }}` (`_macros.j2`), and register the files in `vars/main.yml`.
 

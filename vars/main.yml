@@ -5,7 +5,11 @@
 # Differences between sets: server group ([mysqld] / [mariadbd]), character-set-server
 # set by the 10.11 package only, 50-mysql-clients.cnf renamed 50-mariadb-clients.cnf.
 # 70-cytadel-extra.cnf is role-owned: it carries the settings of my.cnf.j2 that the
-# package includes ignore. Active package options are driven in 50-server.cnf itself.
+# package includes ignore, and the [mysqld] / [mysqldump] side of options that the
+# package also has in another section ([galera], conf.d/mysqldump.cnf). Active package
+# options are driven in 50-server.cnf itself.
+# Rule: an option present in several sections gets one variable per section, never the
+# same variable twice (mysql_binlog_format in [mysqld], mysql_galera_binlog_format in [galera]).
 __mysql_mariadb_includes_catalog:
   '10.11':
     - { src: mariadb_includes/10.11/50-client.cnf.j2, dest_name: 50-client.cnf, dest_dir: mariadb.conf.d, force: true }
