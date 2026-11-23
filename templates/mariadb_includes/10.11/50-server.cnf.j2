@@ -14,7 +14,7 @@
 #
 
 {{ m.opt('mysql_daemon_user', 'user                    = ', 'mysql') }}
-pid-file                = /run/mysqld/mysqld.pid
+{{ m.act('mysql_pid_file', 'pid-file                = ', '/run/mysqld/mysqld.pid') }}
 basedir                 = /usr
 {{ m.opt('mysql_datadir', 'datadir                 = ', '/var/lib/mysql') }}
 {{ m.opt('mysql_tmpdir', 'tmpdir                  = ', '/tmp') }}
@@ -25,7 +25,7 @@ basedir                 = /usr
 
 # Instead of skip-networking the default is now to listen only on
 # localhost which is more compatible and is not less secure.
-bind-address            = 127.0.0.1
+{{ m.act('mysql_bind_address', 'bind-address            = ', '127.0.0.1') }}
 
 #
 # * Fine Tuning
@@ -73,7 +73,7 @@ bind-address            = 127.0.0.1
 #       other settings you may need to change.
 {{ m.opt('mysql_server_id', 'server-id              = ', '1') }}
 {{ m.opt('mysql_log_bin', 'log_bin                = ', '/var/log/mysql/mysql-bin.log') }}
-expire_logs_days        = 10
+{{ m.act('mysql_expire_logs_days', 'expire_logs_days        = ', '10') }}
 {{ m.opt('mysql_max_binlog_size', 'max_binlog_size        = ', '100M') }}
 
 #
@@ -93,8 +93,8 @@ expire_logs_days        = 10
 
 # MySQL/MariaDB default is Latin1, but in Debian we rather default to the full
 # utf8 4-byte character set. See also client.cnf
-character-set-server  = utf8mb4
-collation-server      = utf8mb4_general_ci
+{{ m.act('mysql_character_set_server', 'character-set-server  = ', 'utf8mb4') }}
+{{ m.act('mysql_collation_server', 'collation-server      = ', 'utf8mb4_general_ci') }}
 
 #
 # * InnoDB

@@ -4,8 +4,8 @@
 # Sets: '10.11' (Debian 12 and every 10.x) and '11.8' (Debian 13, reference).
 # Differences between sets: server group ([mysqld] / [mariadbd]), character-set-server
 # set by the 10.11 package only, 50-mysql-clients.cnf renamed 50-mariadb-clients.cnf.
-# 70-cytadel-extra.cnf is role-owned: it overrides the values the package sets
-# active and carries the settings of my.cnf.j2 that the package includes ignore.
+# 70-cytadel-extra.cnf is role-owned: it carries the settings of my.cnf.j2 that the
+# package includes ignore. Active package options are driven in 50-server.cnf itself.
 __mysql_mariadb_includes_catalog:
   '10.11':
     - { src: mariadb_includes/10.11/50-client.cnf.j2, dest_name: 50-client.cnf, dest_dir: mariadb.conf.d, force: true }

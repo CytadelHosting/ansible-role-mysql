@@ -34,6 +34,14 @@
 {%- endif -%}
 {%- endmacro %}
 
+{#- act: ACTIVE option of the package ("bind-address = 127.0.0.1").
+      The package value stays when the project does not set the variable; otherwise the value of the variable.
+      Unlike opt, the line is never commented. -#}
+{% macro act(var, prefix, default) -%}
+{%- set current = lookup('ansible.builtin.vars', var) if var in mysql_explicit_vars else none -%}
+{{ prefix }}{{ default if current in [none, ''] else current }}
+{%- endmacro %}
+
 {#- flag: option without value (skip-name-resolve), enabled by a true variable. -#}
 {% macro flag(var, name) -%}
 {%- if var in mysql_explicit_vars and (lookup('ansible.builtin.vars', var) | bool) -%}

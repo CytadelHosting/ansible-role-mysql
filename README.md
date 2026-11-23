@@ -148,13 +148,13 @@ mysql_max_connections: 801
 
 | File | Content |
 |---|---|
-| `50-server.cnf`, `50-client.cnf`, `50-mysqld_safe.cnf`, `60-galera.cnf` | Package files; every commented option is driven by a variable (list in `defaults/main.yml`). |
+| `50-server.cnf`, `50-client.cnf`, `50-mysqld_safe.cnf`, `60-galera.cnf` | Package files. Every commented option is driven by a variable (list in `defaults/main.yml`), and so is every **active** option the package sets (`pid-file`, `bind-address`, `expire_logs_days`, `character-set-server`, `collation-server`): the package value stays unless the project sets the variable. |
 | `50-mysql-clients.cnf` (10.11) / `50-mariadb-clients.cnf` (11.8) | Package files, no option to drive (kept for completeness, the package renamed it in 11.x). |
-| `70-cytadel-extra.cnf` | Role-owned. Overrides what the package sets **active** (`bind-address`, `pid-file`, `expire_logs_days`, `character-set-server`) and carries the `my.cnf.j2` settings the package ignores (`sql_mode`, memory and InnoDB settings, `[mysqldump]`...). |
+| `70-cytadel-extra.cnf` | Role-owned. Carries the `my.cnf.j2` settings the package include files do not know (`port`, `sql_mode`, `slow_query_log`, memory and InnoDB settings, `[mysqldump]`...). Options of the package are never repeated here. |
 
 Same variable names as `my.cnf.j2` wherever the option exists there (`mysql_max_connections`, `mysql_table_open_cache`, `mysql_log`...), otherwise `mysql_<option>`. `table_cache` is a deprecated alias of `table_open_cache`: the active line is written `table_open_cache`. Options duplicated in `60-galera.cnf` use a `mysql_galera_` prefix so they do not leak into the server group.
 
-Two template sets cover the differences between releases: `10.11` (Debian 12, every 10.x) and `11.8` (Debian 13, reference). They differ by the server group (`[mysqld]` / `[mariadbd]`), `character-set-server` (set active by the 10.11 package only), and the clients file name. To add a release, copy the package files into a new `templates/mariadb_includes/<version>/`, replace the commented options by `{{ m.opt(...) }}` / `{{ m.flag(...) }}` calls (`_macros.j2`), and register the files in `vars/main.yml`.
+Two template sets cover the differences between releases: `10.11` (Debian 12, every 10.x) and `11.8` (Debian 13, reference). They differ by the server group (`[mysqld]` / `[mariadbd]`), `character-set-server` (set active by the 10.11 package only), and the clients file name. To add a release, copy the package files into a new `templates/mariadb_includes/<version>/`, replace the commented options by `{{ m.opt(...) }}` / `{{ m.flag(...) }}` calls and the active ones by `{{ m.act(...) }}` (`_macros.j2`), and register the files in `vars/main.yml`.
 
 The role list is merged with `mysql_config_include_files` (the project list, with the project's own templates and files). On the same destination the project entry wins, and `90-*.cnf` files are read last:
 
