@@ -162,6 +162,51 @@ mysql_config_include_files: []
 #    type: file
 #    dest_dir: conf.d
 
+# Include files of the official MariaDB package (Debian only), driven by variables.
+# false (default): the role deploys only mysql_config_include_files. Nothing changes.
+# true: the role also deploys, in mariadb.conf.d, the include files of the MariaDB
+#   package rendered from templates/mariadb_includes/<set>/. Each commented option of
+#   the package file is uncommented, with the value of its variable, ONLY when the
+#   project sets that variable (host_vars, group_vars, -e). Role defaults are ignored,
+#   so a file without any variable is byte-identical to the one of the package.
+#   A role-owned 70-cytadel-extra.cnf carries what the package files do not offer.
+#   mysql_config_include_files is merged afterwards: the project entry wins on the same
+#   destination, and 90-*.cnf files keep the last word (alphabetical order).
+#   Needs my.cnf linked to mariadb.cnf, or left untouched (see my.cnf decision tree).
+#   These files are dpkg conffiles: a package upgrade keeps the role version and writes
+#   the new package one as *.dpkg-dist (apt --force-confold, or answer N).
+mysql_mariadb_includes_manage: false
+
+# Template set: '10.11' (MariaDB < 11.6, Debian 12) or '11.8' (>= 11.6, Debian 13).
+# 11.6 is where MariaDB switched its default charset to utf8mb4.
+mysql_mariadb_includes_version: "{{ '11.8' if (mysql_cli_version | regex_search('^[0-9]+[.][0-9]+') is version('11.6', '>=')) else '10.11' }}"
+
+# Package include files to leave alone, by filename (e.g. ['60-galera.cnf']).
+mysql_mariadb_includes_exclude: []
+
+# Variables read by the package include templates (option -> variable).
+# Same names as my.cnf.j2 where the option exists there; otherwise mysql_<option>.
+#   50-server.cnf   mysql_daemon_user mysql_datadir mysql_tmpdir mysql_skip_name_resolve (bool)
+#                   mysql_key_buffer_size mysql_max_allowed_packet mysql_thread_stack
+#                   mysql_thread_cache_size mysql_myisam_recover_options mysql_max_connections
+#                   mysql_table_open_cache (table_cache is its deprecated alias)
+#                   mysql_log (general_log + general_log_file) mysql_log_error
+#                   mysql_slow_query_log_file mysql_slow_query_time mysql_slow_query_log_verbosity
+#                   mysql_log_queries_not_using_indexes (bool) mysql_log_slow_min_examined_row_limit
+#                   mysql_server_id mysql_log_bin mysql_max_binlog_size
+#                   mysql_ssl_ca mysql_ssl_cert mysql_ssl_key mysql_require_secure_transport
+#                   mysql_innodb_buffer_pool_size
+#   50-client.cnf   mysql_client_ssl_cert mysql_client_ssl_key mysql_client_ssl_verify_server_cert
+#   60-galera.cnf   mysql_wsrep_on mysql_wsrep_cluster_name mysql_wsrep_cluster_address
+#                   mysql_wsrep_slave_threads mysql_galera_binlog_format
+#                   mysql_galera_default_storage_engine mysql_galera_innodb_autoinc_lock_mode
+#                   mysql_galera_bind_address mysql_galera_innodb_flush_log_at_trx_commit
+#   70-cytadel-extra.cnf (see the file) mysql_port mysql_bind_address mysql_pid_file mysql_sql_mode
+#                   mysql_character_set_server mysql_collation_server mysql_expire_logs_days
+#                   mysql_binlog_expire_logs_seconds mysql_slow_query_log_enabled
+#                   and the memory / InnoDB settings of my.cnf.j2
+# A variable that is not set by the project, or set to an empty value, leaves the package line as is.
+
 # Databases.
 mysql_databases: []
 #   - name: example

@@ -1,4 +1,7 @@
 ---
+# Must stay first: records the variables set by the project before variables.yml adds OS defaults.
+- ansible.builtin.include_tasks: explicit-vars.yml
+
 # Variable configuration.
 - ansible.builtin.include_tasks: variables.yml
 

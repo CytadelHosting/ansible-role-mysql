@@ -1,0 +1,120 @@
+{% import 'mariadb_includes/_macros.j2' as m with context %}
+#
+# These groups are read by MariaDB server.
+# Use it for options that only the server (but not clients) should see
+
+# this is read by the standalone daemon and embedded servers
+[server]
+
+# this is only for the mysqld standalone daemon
+[mysqld]
+
+#
+# * Basic Settings
+#
+
+{{ m.opt('mysql_daemon_user', 'user                    = ', 'mysql') }}
+pid-file                = /run/mysqld/mysqld.pid
+basedir                 = /usr
+{{ m.opt('mysql_datadir', 'datadir                 = ', '/var/lib/mysql') }}
+{{ m.opt('mysql_tmpdir', 'tmpdir                  = ', '/tmp') }}
+
+# Broken reverse DNS slows down connections considerably and name resolve is
+# safe to skip if there are no "host by domain name" access grants
+{{ m.flag('mysql_skip_name_resolve', 'skip-name-resolve') }}
+
+# Instead of skip-networking the default is now to listen only on
+# localhost which is more compatible and is not less secure.
+bind-address            = 127.0.0.1
+
+#
+# * Fine Tuning
+#
+
+{{ m.opt('mysql_key_buffer_size', 'key_buffer_size        = ', '128M') }}
+{{ m.opt('mysql_max_allowed_packet', 'max_allowed_packet     = ', '1G') }}
+{{ m.opt('mysql_thread_stack', 'thread_stack           = ', '192K') }}
+{{ m.opt('mysql_thread_cache_size', 'thread_cache_size      = ', '8') }}
+# This replaces the startup script and checks MyISAM tables if needed
+# the first time they are touched
+{{ m.opt('mysql_myisam_recover_options', 'myisam_recover_options = ', 'BACKUP') }}
+{{ m.opt('mysql_max_connections', 'max_connections        = ', '100') }}
+{{ m.opt('mysql_table_open_cache', 'table_open_cache       = ', '64', comment='#table_cache            = 64') }}
+
+#
+# * Logging and Replication
+#
+
+# Note: The configured log file or its directory need to be created
+# and be writable by the mysql user, e.g.:
+# $ sudo mkdir -m 2750 /var/log/mysql
+# $ sudo chown mysql /var/log/mysql
+
+# Both location gets rotated by the cronjob.
+# Be aware that this log type is a performance killer.
+# Recommend only changing this at runtime for short testing periods if needed!
+{{ m.opt('mysql_log', 'general_log_file       = ', '/var/log/mysql/mysql.log', unless='syslog') }}
+{{ m.opt('mysql_log', 'general_log            = ', '1', value='1', unless='syslog') }}
+
+# When running under systemd, error logging goes via stdout/stderr to journald
+# and when running legacy init error logging goes to syslog due to
+# /etc/mysql/conf.d/mariadb.conf.d/50-mysqld_safe.cnf
+# Enable this if you want to have error logging into a separate file
+{{ m.opt('mysql_log_error', 'log_error = ', '/var/log/mysql/error.log', unless='syslog') }}
+# Enable the slow query log to see queries with especially long duration
+{{ m.opt('mysql_slow_query_log_file', 'log_slow_query_file    = ', '/var/log/mysql/mariadb-slow.log') }}
+{{ m.opt('mysql_slow_query_time', 'log_slow_query_time    = ', '10') }}
+{{ m.opt('mysql_slow_query_log_verbosity', 'log_slow_verbosity     = ', 'query_plan,explain') }}
+{{ m.flag('mysql_log_queries_not_using_indexes', 'log-queries-not-using-indexes') }}
+{{ m.opt('mysql_log_slow_min_examined_row_limit', 'log_slow_min_examined_row_limit = ', '1000') }}
+
+# The following can be used as easy to replay backup logs or for replication.
+# note: if you are setting up a replication slave, see README.Debian about
+#       other settings you may need to change.
+{{ m.opt('mysql_server_id', 'server-id              = ', '1') }}
+{{ m.opt('mysql_log_bin', 'log_bin                = ', '/var/log/mysql/mysql-bin.log') }}
+expire_logs_days        = 10
+{{ m.opt('mysql_max_binlog_size', 'max_binlog_size        = ', '100M') }}
+
+#
+# * SSL/TLS
+#
+
+# For documentation, please read
+# https://mariadb.com/kb/en/securing-connections-for-client-and-server/
+{{ m.opt('mysql_ssl_ca', 'ssl-ca = ', '/etc/mysql/cacert.pem') }}
+{{ m.opt('mysql_ssl_cert', 'ssl-cert = ', '/etc/mysql/server-cert.pem') }}
+{{ m.opt('mysql_ssl_key', 'ssl-key = ', '/etc/mysql/server-key.pem') }}
+{{ m.opt('mysql_require_secure_transport', 'require-secure-transport = ', 'on') }}
+
+#
+# * Character sets
+#
+
+# MySQL/MariaDB default is Latin1, but in Debian we rather default to the full
+# utf8 4-byte character set. See also client.cnf
+character-set-server  = utf8mb4
+collation-server      = utf8mb4_general_ci
+
+#
+# * InnoDB
+#
+
+# InnoDB is enabled by default with a 10MB datafile in /var/lib/mysql/.
+# Read the manual for more InnoDB related options. There are many!
+# Most important is to give InnoDB 80 % of the system RAM for buffer use:
+# https://mariadb.com/kb/en/innodb-system-variables/#innodb_buffer_pool_size
+{{ m.opt('mysql_innodb_buffer_pool_size', 'innodb_buffer_pool_size = ', '8G') }}
+
+# this is only for embedded server
+[embedded]
+
+# This group is only read by MariaDB servers, not by MySQL.
+# If you use the same .cnf file for MySQL and MariaDB,
+# you can put MariaDB-only options here
+[mariadb]
+
+# This group is only read by MariaDB-10.11 servers.
+# If you use the same .cnf file for MariaDB of different versions,
+# use this group for options that older servers don't understand
+[mariadb-10.11]

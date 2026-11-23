@@ -1,0 +1,131 @@
+---
+# Deploys the include files (conf.d, mariadb.conf.d...).
+#
+# Two sources are merged into mysql_config_include_files_all:
+#   1. the include files of the MariaDB package, driven by variables, when
+#      mysql_mariadb_includes_manage is true (templates/mariadb_includes/);
+#   2. mysql_config_include_files, defined by the project (host_vars): its own
+#      templates and files, resolved from the playbook.
+# On the same destination, the project entry replaces the role entry.
+# With mysql_mariadb_includes_manage false (default), only the project list is used.
+#
+# Each entry lands in one directory, under one filename.
+# dest_dir omitted or "conf.d" uses mysql_config_include_dir.
+# "mariadb.conf.d" uses mysql_config_mariadb_include_dir (Debian/Arch).
+# Any other absolute path is used as-is.
+# dest_name defaults to the source basename without a trailing .j2.
+# type "template" renders Jinja (historical behaviour). type "file" copies bytes.
+- name: Select the MariaDB package includes to deploy.
+  ansible.builtin.set_fact:
+    mysql_mariadb_includes_auto: >-
+      {{ __mysql_mariadb_includes_catalog[mysql_mariadb_includes_version]
+         | rejectattr('dest_name', 'in', mysql_mariadb_includes_exclude)
+         | list }}
+  when: mysql_mariadb_includes_manage | bool
+
+- name: Merge the role includes and the project includes.
+  ansible.builtin.set_fact:
+    mysql_config_include_files_all: >-
+      {%- set ns = namespace(by_dest={}) -%}
+      {%- for entry in mysql_mariadb_includes_auto + mysql_config_include_files -%}
+      {%- set dest_key = entry.dest_dir | default('conf.d') ~ '/' ~ (entry.dest_name | default(entry.src | basename | regex_replace('\\.j2$', ''))) -%}
+      {%- set _ = ns.by_dest.update({dest_key: entry}) -%}
+      {%- endfor -%}
+      {{ ns.by_dest.values() | list }}
+  when: mysql_mariadb_includes_manage | bool
+
+- name: Use the project includes only.
+  ansible.builtin.set_fact:
+    mysql_config_include_files_all: "{{ mysql_config_include_files }}"
+  when: not (mysql_mariadb_includes_manage | bool)
+
+- name: Check mysql include entries.
+  ansible.builtin.assert:
+    that:
+      - item.src is defined
+      - item.src | length > 0
+      - item.type | default('template') in ['template', 'file']
+      - item.dest_name is not defined or '/' not in item.dest_name
+      - item.dest_dir is not defined or item.dest_dir in ['conf.d', 'mariadb.conf.d'] or item.dest_dir is match('^/')
+    fail_msg: >-
+      mysql_config_include_files entry is invalid (src={{ item.src | default('') }}).
+      type is template or file, dest_dir is conf.d, mariadb.conf.d or an absolute path,
+      dest_name is a filename.
+    quiet: true
+  loop: "{{ mysql_config_include_files_all }}"
+  loop_control:
+    label: "{{ item.src | default('missing src') }}"
+  when: mysql_config_include_files_all | length > 0
+
+- name: Check mariadb.conf.d is available on this OS.
+  ansible.builtin.assert:
+    that:
+      - mysql_config_mariadb_include_dir is defined
+      - mysql_config_mariadb_include_dir | length > 0
+    fail_msg: >-
+      dest_dir mariadb.conf.d is not defined for this OS.
+      Set mysql_config_mariadb_include_dir or pass an absolute dest_dir.
+    quiet: true
+  when:
+    - mysql_config_include_files_all | length > 0
+    - mysql_config_include_files_all | selectattr('dest_dir', 'defined') | selectattr('dest_dir', 'equalto', 'mariadb.conf.d') | list | length > 0
+
+- name: Reset resolved mysql include files.
+  ansible.builtin.set_fact:
+    mysql_config_include_files_resolved: []
+
+- name: Resolve mysql include destinations.
+  ansible.builtin.set_fact:
+    mysql_config_include_files_resolved: "{{ mysql_config_include_files_resolved + [mysql_include_resolved] }}"
+  loop: "{{ mysql_config_include_files_all }}"
+  loop_control:
+    loop_var: mysql_include_item
+    label: "{{ mysql_include_item.src }}"
+  vars:
+    mysql_include_dest_dir: "{{ mysql_config_mariadb_include_dir if (mysql_include_item.dest_dir | default('conf.d')) == 'mariadb.conf.d' else (mysql_config_include_dir if (mysql_include_item.dest_dir | default('conf.d')) in ['conf.d'] else mysql_include_item.dest_dir) }}"
+    mysql_include_dest_name: "{{ mysql_include_item.dest_name | default(mysql_include_item.src | basename | regex_replace('\\.j2$', '')) }}"
+    mysql_include_resolved:
+      src: "{{ mysql_include_item.src }}"
+      type: "{{ mysql_include_item.type | default('template') }}"
+      dest: "{{ mysql_include_dest_dir | regex_replace('/$', '') }}/{{ mysql_include_dest_name }}"
+      force: "{{ mysql_include_item.force | default(false) | bool }}"
+  when: mysql_config_include_files_all | length > 0
+
+- name: Create mysql include directories.
+  ansible.builtin.file:
+    path: "{{ item.dest | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+  loop: "{{ mysql_config_include_files_resolved }}"
+  loop_control:
+    label: "{{ item.dest | dirname }}"
+
+- name: Deploy mysql include templates.
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: 0644
+    force: "{{ item.force | bool }}"
+  loop: "{{ mysql_config_include_files_resolved }}"
+  loop_control:
+    label: "{{ item.dest }}"
+  when: item.type == 'template'
+  notify: restart mysql
+
+- name: Deploy mysql include files.
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: 0644
+    force: "{{ item.force | bool }}"
+  loop: "{{ mysql_config_include_files_resolved }}"
+  loop_control:
+    label: "{{ item.dest }}"
+  when: item.type == 'file'
+  notify: restart mysql

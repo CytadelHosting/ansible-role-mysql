@@ -100,7 +100,7 @@ With the link (Debian MariaDB layout: `/etc/mysql/my.cnf` links to `mariadb.cnf`
 - a missing `mariadb.cnf` is restored with the Debian default content (`templates/mariadb.cnf.j2`); an existing one is never overwritten;
 - a link that already leads to `mariadb.cnf` is left alone, including the Debian alternatives chain (`my.cnf -> /etc/alternatives/my.cnf -> mariadb.cnf`);
 - a regular `my.cnf` is copied to `my.cnf.bak-<date>` (`mysql_config_file_link_backup`), then replaced by a relative link; a link to another file is repointed;
-- the global settings of `my.cnf.j2` (`mysql_max_connections`, `mysql_key_buffer_size`, ...) are **not deployed**: set them from `mysql_config_include_files`, typically in `mariadb.conf.d` as `90-*.cnf` so they are read after the package's `50-server.cnf`.
+- the global settings of `my.cnf.j2` (`mysql_max_connections`, `mysql_key_buffer_size`, ...) are **not deployed**: either enable `mysql_mariadb_includes_manage` (see below) so the same variables drive the package include files, or set them from `mysql_config_include_files`, typically in `mariadb.conf.d` as `90-*.cnf` so they are read after the package's `50-server.cnf`.
 
 To keep rendering `my.cnf` from the template on a Debian MariaDB host, set `mysql_config_file_link_to_mariadb_cnf: false`. To keep a hand-made `my.cnf` without looking at it, set `mysql_skip_mycnf_management: true`.
 
@@ -126,6 +126,47 @@ mysql_config_include_files:
     type: file
     dest_dir: conf.d
 ```
+
+#### MariaDB package includes driven by variables
+
+```yaml
+mysql_mariadb_includes_manage: false   # default: nothing changes
+mysql_mariadb_includes_version: ''     # default: '10.11' below MariaDB 11.6, '11.8' from 11.6
+mysql_mariadb_includes_exclude: []     # e.g. ['60-galera.cnf']
+```
+
+Debian + MariaDB only. With `mysql_mariadb_includes_manage: true` the role deploys in `mariadb.conf.d` the include files of the official MariaDB package, rendered from `templates/mariadb_includes/<set>/`. Every commented option of a package file is uncommented, with the value of its variable, **only when the project sets that variable** (host_vars, group_vars, `-e`). Otherwise the line stays exactly as in the package, still commented, with the package default. A rendering with no variable is therefore **byte-identical** to the package file.
+
+"Set by the project" is not `is defined`: the role defaults define nearly every `mysql_*` variable. The role records the variables coming from the inventory in `mysql_explicit_vars` (`tasks/explicit-vars.yml`, before any role `set_fact`). A variable set to `none` or `''` keeps the package line.
+
+```yaml
+# host_vars: key_buffer_size and max_connections become active, the rest stays as the package ships it
+mysql_mariadb_includes_manage: true
+mysql_key_buffer_size: 512M
+mysql_max_connections: 801
+```
+
+| File | Content |
+|---|---|
+| `50-server.cnf`, `50-client.cnf`, `50-mysqld_safe.cnf`, `60-galera.cnf` | Package files; every commented option is driven by a variable (list in `defaults/main.yml`). |
+| `50-mysql-clients.cnf` (10.11) / `50-mariadb-clients.cnf` (11.8) | Package files, no option to drive (kept for completeness, the package renamed it in 11.x). |
+| `70-cytadel-extra.cnf` | Role-owned. Overrides what the package sets **active** (`bind-address`, `pid-file`, `expire_logs_days`, `character-set-server`) and carries the `my.cnf.j2` settings the package ignores (`sql_mode`, memory and InnoDB settings, `[mysqldump]`...). |
+
+Same variable names as `my.cnf.j2` wherever the option exists there (`mysql_max_connections`, `mysql_table_open_cache`, `mysql_log`...), otherwise `mysql_<option>`. `table_cache` is a deprecated alias of `table_open_cache`: the active line is written `table_open_cache`. Options duplicated in `60-galera.cnf` use a `mysql_galera_` prefix so they do not leak into the server group.
+
+Two template sets cover the differences between releases: `10.11` (Debian 12, every 10.x) and `11.8` (Debian 13, reference). They differ by the server group (`[mysqld]` / `[mariadbd]`), `character-set-server` (set active by the 10.11 package only), and the clients file name. To add a release, copy the package files into a new `templates/mariadb_includes/<version>/`, replace the commented options by `{{ m.opt(...) }}` / `{{ m.flag(...) }}` calls (`_macros.j2`), and register the files in `vars/main.yml`.
+
+The role list is merged with `mysql_config_include_files` (the project list, with the project's own templates and files). On the same destination the project entry wins, and `90-*.cnf` files are read last:
+
+```yaml
+mysql_mariadb_includes_manage: true
+mysql_config_include_files:
+  - src: mysql/includes/90-site.cnf.j2     # resolved from the playbook templates/
+    dest_dir: mariadb.conf.d
+    force: true
+```
+
+Requirements: `my.cnf` linked to `mariadb.cnf` or left untouched (the `my.cnf.j2` template does not include `mariadb.conf.d`); the role fails before touching any configuration file otherwise. The package files are dpkg conffiles: an upgrade keeps the role version and writes the new package one as `*.dpkg-dist`.
 
 ```yaml
 mysql_databases: []

@@ -1,0 +1,16 @@
+---
+# Which mysql_* variables does the project set itself?
+#
+# The role defaults define almost every mysql_* variable, so `is defined` is
+# always true and cannot tell "the project wants this value" from "role default".
+# hostvars[inventory_hostname] holds what comes from the inventory (host_vars,
+# group_vars), extra vars (-e) and set_fact, but NOT the role defaults, role vars
+# nor play vars. Its mysql_* keys are the variables the project set explicitly.
+#
+# This must run before variables.yml: its set_fact tasks would otherwise add the
+# OS defaults (mysql_log_error, mysql_pid_file...) to hostvars.
+# Used by the templates of templates/mariadb_includes/ (see _macros.j2).
+- name: Remember which mysql_* variables are set by the project.
+  ansible.builtin.set_fact:
+    mysql_explicit_vars: "{{ hostvars[inventory_hostname] | list | select('match', '^mysql_') | list }}"
+  when: mysql_explicit_vars is not defined

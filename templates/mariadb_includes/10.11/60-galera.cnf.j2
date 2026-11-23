@@ -1,0 +1,22 @@
+{% import 'mariadb_includes/_macros.j2' as m with context %}
+#
+# * Galera-related settings
+#
+# See the examples of server wsrep.cnf files in /usr/share/mysql
+# and read more at https://mariadb.com/kb/en/galera-cluster/
+
+[galera]
+# Mandatory settings
+{{ m.opt('mysql_wsrep_on', 'wsrep_on                 = ', 'ON') }}
+{{ m.opt('mysql_wsrep_cluster_name', 'wsrep_cluster_name       = ', 'MariaDB Galera Cluster', quote='"') }}
+{{ m.opt('mysql_wsrep_cluster_address', 'wsrep_cluster_address    = ', 'gcomm://') }}
+{{ m.opt('mysql_galera_binlog_format', 'binlog_format            = ', 'row') }}
+{{ m.opt('mysql_galera_default_storage_engine', 'default_storage_engine   = ', 'InnoDB') }}
+{{ m.opt('mysql_galera_innodb_autoinc_lock_mode', 'innodb_autoinc_lock_mode = ', '2') }}
+
+# Allow server to accept connections on all interfaces.
+{{ m.opt('mysql_galera_bind_address', 'bind-address = ', '0.0.0.0') }}
+
+# Optional settings
+{{ m.opt('mysql_wsrep_slave_threads', 'wsrep_slave_threads = ', '1') }}
+{{ m.opt('mysql_galera_innodb_flush_log_at_trx_commit', 'innodb_flush_log_at_trx_commit = ', '0') }}

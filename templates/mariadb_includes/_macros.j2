@@ -1,0 +1,44 @@
+{#-
+  Macros shared by the templates of templates/mariadb_includes/<version>/*.
+
+  Principle: these templates are the include files shipped by the official
+  MariaDB package, where every commented option can be driven by a variable.
+    - variable NOT set by the project -> the line is rendered exactly as in
+      the package (still commented, package default value).
+    - variable set by the project (host_vars, group_vars, -e) -> the line is
+      uncommented and carries the value of the variable.
+
+  "Set by the project" cannot be tested with `is defined`: the role defaults
+  define almost every mysql_* variable. The role records the variables that
+  come from the inventory in mysql_explicit_vars (see tasks/explicit-vars.yml).
+
+  Whitespace: macros are called through {{ }} expressions, which are not
+  affected by trim_blocks, so the line layout of the package file is kept.
+-#}
+
+{#- opt: "key = value" option.
+      var      variable that drives the option
+      prefix   text before the value, exactly as in the package file (key, padding, "= ")
+      default  package default, shown when the line stays commented
+      quote    '"' when the value must be quoted
+      comment  full commented line when it differs from "#" + prefix + default
+      value    rendered instead of the variable value (e.g. 1 for general_log)
+      unless   value for which the option stays commented (e.g. 'syslog')
+-#}
+{% macro opt(var, prefix, default, quote='', comment='', value=none, unless=none) -%}
+{%- set current = lookup('ansible.builtin.vars', var) if var in mysql_explicit_vars else none -%}
+{%- if current not in [none, ''] and current != unless -%}
+{{ prefix }}{{ quote }}{{ current if value is none else value }}{{ quote }}
+{%- else -%}
+{{ comment if comment else '#' ~ prefix ~ quote ~ default ~ quote }}
+{%- endif -%}
+{%- endmacro %}
+
+{#- flag: option without value (skip-name-resolve), enabled by a true variable. -#}
+{% macro flag(var, name) -%}
+{%- if var in mysql_explicit_vars and (lookup('ansible.builtin.vars', var) | bool) -%}
+{{ name }}
+{%- else -%}
+#{{ name }}
+{%- endif -%}
+{%- endmacro %}
