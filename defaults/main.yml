@@ -25,6 +25,25 @@ mysql_enabled_on_startup: true
 # Whether my.cnf should be updated on every run.
 overwrite_global_mycnf: true
 
+# Whether this role writes my.cnf from my.cnf.j2.
+# Set to false when my.cnf belongs to the OS: on Debian, MariaDB ships
+# /etc/mysql/my.cnf as a symlink to mariadb.cnf, and all the tuning goes to
+# mysql_config_include_files (conf.d / mariadb.conf.d) instead.
+# With false, the global settings of my.cnf.j2 (mysql_max_connections, ...) are NOT deployed.
+mysql_config_file_manage: true
+
+# MariaDB only: make mysql_config_file a symlink to mysql_config_mariadb_cnf
+# when this one exists (relative link, as created by the Debian package).
+# Independent from mysql_config_file_manage, but meant to be used with false.
+mysql_config_file_link_to_mariadb_cnf: false
+
+# Allow the link above to replace a regular file standing at mysql_config_file.
+# false: the run fails instead of deleting a hand-made my.cnf.
+mysql_config_file_link_force: false
+
+# The file mysql_config_file must link to; must be in the same directory.
+mysql_config_mariadb_cnf: "{{ mysql_config_file | dirname }}/mariadb.cnf"
+
 # The following variables have a default value depending on operating system.
 # mysql_config_file: /etc/my.cnf
 # mysql_config_include_dir: /etc/my.cnf.d

@@ -1,0 +1,37 @@
+---
+# Debian packaging layout: /etc/mysql/my.cnf is a symlink to mariadb.cnf,
+# which includes conf.d/ and mariadb.conf.d/. This file restores that link.
+#
+# Included from configure.yml only when mysql_config_file_link_to_mariadb_cnf is true.
+# The link is relative (same target as the one created by the package).
+# A regular file standing at mysql_config_file is never replaced unless
+# mysql_config_file_link_force is true (the file module refuses otherwise).
+
+- name: Check that the MariaDB daemon is used.
+  ansible.builtin.assert:
+    that:
+      - mysql_daemon is search('mariadb')
+      - (mysql_config_mariadb_cnf | dirname) == (mysql_config_file | dirname)
+    fail_msg: >-
+      mysql_config_file_link_to_mariadb_cnf only applies to MariaDB, and
+      mariadb.cnf ({{ mysql_config_mariadb_cnf }}) must sit in the same
+      directory as {{ mysql_config_file }}.
+
+- name: Check that the MariaDB main configuration file exists.
+  ansible.builtin.stat:
+    path: "{{ mysql_config_mariadb_cnf }}"
+  register: mysql_mariadb_cnf_stat
+
+- name: Skip the my.cnf link (mariadb.cnf not found).
+  ansible.builtin.debug:
+    msg: "{{ mysql_config_mariadb_cnf }} not found: {{ mysql_config_file }} left untouched."
+  when: not mysql_mariadb_cnf_stat.stat.exists
+
+- name: Make my.cnf a symbolic link to mariadb.cnf.
+  ansible.builtin.file:
+    src: "{{ mysql_config_mariadb_cnf | basename }}"
+    dest: "{{ mysql_config_file }}"
+    state: link
+    force: "{{ mysql_config_file_link_force | bool }}"
+  when: mysql_mariadb_cnf_stat.stat.exists
+  notify: restart mysql

@@ -20,7 +20,13 @@
     group: root
     mode: 0644
     force: "{{ overwrite_global_mycnf }}"
+  when: mysql_config_file_manage | bool
   notify: restart mysql
+
+# my.cnf can be left to the OS (Debian: symlink to mariadb.cnf, see defaults/main.yml).
+- name: Restore the my.cnf symlink to mariadb.cnf.
+  ansible.builtin.include_tasks: config-file-link.yml
+  when: mysql_config_file_link_to_mariadb_cnf | bool
 
 # Each entry lands in one directory, under one filename.
 # dest_dir omitted or "conf.d" uses mysql_config_include_dir.
