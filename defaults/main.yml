@@ -25,23 +25,34 @@ mysql_enabled_on_startup: true
 # Whether my.cnf should be updated on every run.
 overwrite_global_mycnf: true
 
-# Whether this role writes my.cnf from my.cnf.j2.
-# Set to false when my.cnf belongs to the OS: on Debian, MariaDB ships
-# /etc/mysql/my.cnf as a symlink to mariadb.cnf, and all the tuning goes to
-# mysql_config_include_files (conf.d / mariadb.conf.d) instead.
-# With false, the global settings of my.cnf.j2 (mysql_max_connections, ...) are NOT deployed.
+# --- Ownership of my.cnf (decision tree, evaluated in tasks/config-file.yml) ---
+#
+#   mysql_skip_mycnf_management = true   -> my.cnf is left exactly as it is, nothing else is checked
+#   otherwise
+#     link = true  (Debian + MariaDB)    -> my.cnf must be a symlink to mariadb.cnf:
+#                                           a missing mariadb.cnf is restored (Debian default content),
+#                                           a my.cnf that is not that link is backed up, then replaced by it
+#     link = false
+#       manage = true  (historical)      -> my.cnf is rendered from my.cnf.j2
+#       manage = false                   -> nothing (my.cnf is not managed)
+#   In every case, mysql_config_include_files are deployed afterwards.
+#
+# With a link, the global settings of my.cnf.j2 (mysql_max_connections, ...) are NOT deployed:
+# put them in mysql_config_include_files (typically mariadb.conf.d/90-*.cnf).
+mysql_skip_mycnf_management: false
+
+# true by default on Debian-family hosts running MariaDB, where the package ships
+# /etc/mysql/my.cnf as a link to mariadb.cnf (which includes conf.d/ and mariadb.conf.d/).
+# Set it to false to keep rendering my.cnf from my.cnf.j2 on such a host.
+mysql_config_file_link_to_mariadb_cnf: "{{ (mysql_daemon | default('')) is search('mariadb') and ansible_facts['os_family'] == 'Debian' }}"
+
+# Only read when the link is disabled: false = do not write my.cnf at all.
 mysql_config_file_manage: true
 
-# MariaDB only: make mysql_config_file a symlink to mysql_config_mariadb_cnf
-# when this one exists (relative link, as created by the Debian package).
-# Independent from mysql_config_file_manage, but meant to be used with false.
-mysql_config_file_link_to_mariadb_cnf: false
+# Keep a copy of a my.cnf that is about to be replaced by the link (name: my.cnf.bak-<date>).
+mysql_config_file_link_backup: true
 
-# Allow the link above to replace a regular file standing at mysql_config_file.
-# false: the run fails instead of deleting a hand-made my.cnf.
-mysql_config_file_link_force: false
-
-# The file mysql_config_file must link to; must be in the same directory.
+# The file my.cnf must link to; must be in the same directory as my.cnf.
 mysql_config_mariadb_cnf: "{{ mysql_config_file | dirname }}/mariadb.cnf"
 
 # The following variables have a default value depending on operating system.

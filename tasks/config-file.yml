@@ -1,0 +1,36 @@
+---
+# Who owns my.cnf ? See the decision tree in defaults/main.yml.
+#
+#   skip                          -> nothing
+#   link (Debian + MariaDB)       -> my.cnf is a symlink to mariadb.cnf
+#   no link + manage (historical) -> my.cnf rendered from my.cnf.j2
+#   no link + no manage           -> nothing
+#
+# Deploying mysql_config_include_files is done afterwards, whatever happens here.
+
+- name: Leave my.cnf untouched (mysql_skip_mycnf_management=true).
+  ansible.builtin.debug:
+    msg: "{{ mysql_config_file }} is not managed on {{ inventory_hostname }}."
+  when: mysql_skip_mycnf_management | bool
+
+- name: Manage my.cnf.
+  when: not (mysql_skip_mycnf_management | bool)
+  block:
+    - name: Make my.cnf a symlink to mariadb.cnf.
+      ansible.builtin.include_tasks: config-file-link.yml
+      when: mysql_config_file_link_to_mariadb_cnf | bool
+
+    # Historical behaviour, kept for projects that rely on my.cnf.j2.
+    # manage=false and link=false: nothing is done on purpose.
+    - name: Copy my.cnf global MySQL configuration.
+      ansible.builtin.template:
+        src: my.cnf.j2
+        dest: "{{ mysql_config_file }}"
+        owner: root
+        group: root
+        mode: 0644
+        force: "{{ overwrite_global_mycnf }}"
+      when:
+        - not (mysql_config_file_link_to_mariadb_cnf | bool)
+        - mysql_config_file_manage | bool
+      notify: restart mysql

@@ -12,21 +12,10 @@
         mysql_cli_version: >-
           {{ mysql_cli_version.stdout | regex_search('\d+\.\d+\.\d+(-[a-zA-Z]+)?') }}
 
-- name: Copy my.cnf global MySQL configuration.
-  ansible.builtin.template:
-    src: my.cnf.j2
-    dest: "{{ mysql_config_file }}"
-    owner: root
-    group: root
-    mode: 0644
-    force: "{{ overwrite_global_mycnf }}"
-  when: mysql_config_file_manage | bool
-  notify: restart mysql
-
-# my.cnf can be left to the OS (Debian: symlink to mariadb.cnf, see defaults/main.yml).
-- name: Restore the my.cnf symlink to mariadb.cnf.
-  ansible.builtin.include_tasks: config-file-link.yml
-  when: mysql_config_file_link_to_mariadb_cnf | bool
+# my.cnf: skipped, linked to mariadb.cnf, rendered from my.cnf.j2, or ignored.
+# The decision tree is documented in defaults/main.yml.
+- name: Handle my.cnf.
+  ansible.builtin.include_tasks: config-file.yml
 
 # Each entry lands in one directory, under one filename.
 # dest_dir omitted or "conf.d" uses mysql_config_include_dir.

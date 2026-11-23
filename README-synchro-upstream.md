@@ -20,7 +20,7 @@ Patches a conserver :
 - `mysql_log_dir_mode` / `__mysql_log_dir_mode: "02750"` sur Debian
 - `mysql_secure_installation` (null = comportement upstream, `false` = ne rien muter)
 - `mysql_config_include_files`: `type` (`template` ou `file`), `dest_dir` (`conf.d`, `mariadb.conf.d` ou chemin absolu), `dest_name` (defaut: basename sans `.j2`)
-- `mysql_config_file_manage` (defaut `true`), `mysql_config_file_link_to_mariadb_cnf` (defaut `false`), `mysql_config_file_link_force` (defaut `false`), `mysql_config_mariadb_cnf`: laisser `my.cnf` a l'OS ou le remettre en lien vers `mariadb.cnf` (tache `tasks/config-file-link.yml`)
+- `mysql_skip_mycnf_management` (defaut `false`), `mysql_config_file_link_to_mariadb_cnf` (defaut `true` sur Debian + MariaDB), `mysql_config_file_manage` (defaut `true`, lu seulement sans lien), `mysql_config_file_link_backup`, `mysql_config_mariadb_cnf`: arbre de decision sur `my.cnf` (`tasks/config-file.yml`, `tasks/config-file-link.yml`, `templates/mariadb.cnf.j2`)
 
 ## Remotes
 

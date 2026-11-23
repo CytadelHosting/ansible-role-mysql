@@ -77,17 +77,32 @@ overwrite_global_mycnf: true
 Whether the global my.cnf should be overwritten each time this role is run. Setting this to `false` tells Ansible to only create the `my.cnf` file if it doesn't exist. This should be left at its default value (`true`) if you'd like to use this role's variables to configure MySQL.
 
 ```yaml
-mysql_config_file_manage: true
-mysql_config_file_link_to_mariadb_cnf: false
-mysql_config_file_link_force: false
+mysql_skip_mycnf_management: false
+mysql_config_file_link_to_mariadb_cnf: true   # default: true on Debian-family + MariaDB, false elsewhere
+mysql_config_file_manage: true                # only read when the link is disabled
+mysql_config_file_link_backup: true
 mysql_config_mariadb_cnf: /etc/mysql/mariadb.cnf   # default: mariadb.cnf next to mysql_config_file
 ```
 
-For hosts where `my.cnf` belongs to the OS (Debian MariaDB: `/etc/mysql/my.cnf` is a symlink to `mariadb.cnf`, which includes `conf.d/` and `mariadb.conf.d/`):
+Who owns `my.cnf` (`tasks/config-file.yml`):
 
-- `mysql_config_file_manage: false` : the role does not write `my.cnf` from `my.cnf.j2` and ignores it. The global settings of `my.cnf.j2` (`mysql_max_connections`, `mysql_key_buffer_size`, ...) are then **not deployed**: set them from `mysql_config_include_files` instead (typically in `mariadb.conf.d`, `90-*.cnf`, so that they are read after the package's `50-server.cnf`).
-- `mysql_config_file_link_to_mariadb_cnf: true` (MariaDB only) : when `mariadb.cnf` exists, `my.cnf` is made a relative symlink to it. An existing correct link is left alone (idempotent); a wrong link is repointed (and mysql is restarted).
-- `mysql_config_file_link_force: true` : also allow replacing a regular `my.cnf`. With `false` (default) the run fails rather than deleting a hand-made file.
+| Condition | What the role does with `my.cnf` |
+|---|---|
+| `mysql_skip_mycnf_management: true` | Nothing at all: the file in place is left as is. |
+| link enabled (default on Debian + MariaDB) | Makes `my.cnf` a symlink to `mariadb.cnf` (see below). `mysql_config_file_manage` is ignored. |
+| link disabled, `mysql_config_file_manage: true` | Renders `my.cnf` from `my.cnf.j2` (historical behaviour). |
+| link disabled, `mysql_config_file_manage: false` | Nothing: `my.cnf` is not managed. |
+
+`mysql_config_include_files` are always deployed afterwards.
+
+With the link (Debian MariaDB layout: `/etc/mysql/my.cnf` links to `mariadb.cnf`, which includes `conf.d/` and `mariadb.conf.d/`):
+
+- a missing `mariadb.cnf` is restored with the Debian default content (`templates/mariadb.cnf.j2`); an existing one is never overwritten;
+- a link that already leads to `mariadb.cnf` is left alone, including the Debian alternatives chain (`my.cnf -> /etc/alternatives/my.cnf -> mariadb.cnf`);
+- a regular `my.cnf` is copied to `my.cnf.bak-<date>` (`mysql_config_file_link_backup`), then replaced by a relative link; a link to another file is repointed;
+- the global settings of `my.cnf.j2` (`mysql_max_connections`, `mysql_key_buffer_size`, ...) are **not deployed**: set them from `mysql_config_include_files`, typically in `mariadb.conf.d` as `90-*.cnf` so they are read after the package's `50-server.cnf`.
+
+To keep rendering `my.cnf` from the template on a Debian MariaDB host, set `mysql_config_file_link_to_mariadb_cnf: false`. To keep a hand-made `my.cnf` without looking at it, set `mysql_skip_mycnf_management: true`.
 
 ```yaml
 mysql_config_include_files: []
