@@ -25,3 +25,7 @@ __mysql_mariadb_includes_catalog:
     - { src: mariadb_includes/11.8/50-server.cnf.j2, dest_name: 50-server.cnf, dest_dir: mariadb.conf.d, force: true }
     - { src: mariadb_includes/11.8/60-galera.cnf.j2, dest_name: 60-galera.cnf, dest_dir: mariadb.conf.d, force: true }
     - { src: mariadb_includes/70-cytadel-extra.cnf.j2, dest_name: 70-cytadel-extra.cnf, dest_dir: mariadb.conf.d, force: true }
+
+# Handlers notified when the systemd drop-in changes: the restart is opt-in (a limit applies at the
+# next start of the process, restarting a production database is never a side effect).
+__mysql_systemd_dropin_restart_handlers: "{{ ['restart mysql'] if mysql_systemd_dropin_restart | bool else [] }}"

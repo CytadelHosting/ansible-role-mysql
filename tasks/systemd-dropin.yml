@@ -1,0 +1,99 @@
+---
+# ONE systemd drop-in carries the service limits (LimitNOFILE, OOMScoreAdjust), managed here only.
+#
+# Why a single file: systemd reads the drop-ins in alphabetical order and, for a directive that
+# takes one value, the last one wins. A second file (typically override.conf, written by
+# `systemctl edit`) silently beats ours. This file therefore does three things:
+#   1. write our drop-in;
+#   2. optionally remove the others (mysql_systemd_dropin_purge);
+#   3. ask systemd what it really loaded and fail when it is not what the project asked for.
+
+- name: Check that the host runs systemd.
+  ansible.builtin.assert:
+    that: ansible_facts.service_mgr | default('') == 'systemd'
+    fail_msg: "mysql_systemd_dropin_manage needs systemd, this host runs {{ ansible_facts.service_mgr | default('unknown') }}."
+    quiet: true
+
+- name: Create the drop-in directory.
+  ansible.builtin.file:
+    path: "{{ mysql_systemd_dropin_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install the drop-in.
+  ansible.builtin.template:
+    src: systemd-dropin.conf.j2
+    dest: "{{ mysql_systemd_dropin_dir }}/{{ mysql_systemd_dropin_name }}"
+    owner: root
+    group: root
+    mode: "0644"
+  register: mysql_systemd_dropin_file
+  notify: "{{ __mysql_systemd_dropin_restart_handlers }}"
+
+# One drop-in only: every other file of the directory goes, except our file and the keep list.
+# systemd reads only *.conf; the other files (cytadel.conf.bak, *.dpkg-old...) are leftovers, removed too.
+- name: Remove the other drop-ins.
+  when: mysql_systemd_dropin_purge | bool
+  block:
+    - name: List the other drop-ins.
+      ansible.builtin.find:
+        paths: "{{ mysql_systemd_dropin_dir }}"
+        patterns: "*"
+        excludes: "{{ [mysql_systemd_dropin_name] + mysql_systemd_dropin_keep }}"
+      register: mysql_systemd_other_dropins
+
+    - name: Delete the other drop-ins.
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ mysql_systemd_other_dropins.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+      register: mysql_systemd_dropins_removed
+      notify: "{{ __mysql_systemd_dropin_restart_handlers }}"
+
+# systemd must re-read the files before it can tell what it will use.
+# The restart is a separate, opt-in decision (mysql_systemd_dropin_restart, see the notify above):
+# a limit only applies to the process at its next start. The handler runs after this reload.
+# (daemon_reload never reports "changed", so the notify cannot live on this task.)
+- name: Reload systemd after a drop-in change.
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when:
+    - not ansible_check_mode
+    - mysql_systemd_dropin_file is changed or (mysql_systemd_dropins_removed is defined and mysql_systemd_dropins_removed is changed)
+
+- name: Verify what systemd really loaded.
+  when:
+    - mysql_systemd_dropin_verify | bool
+    - not ansible_check_mode
+  block:
+    - name: Ask systemd.
+      ansible.builtin.command: "systemctl show {{ mysql_daemon }} --property=DropInPaths,LimitNOFILE,OOMScoreAdjust,NeedDaemonReload"
+      register: mysql_systemd_show
+      changed_when: false
+
+    - name: Parse the answer.
+      ansible.builtin.set_fact:
+        __mysql_systemd_loaded: "{{ dict(mysql_systemd_show.stdout_lines | map('split', '=', 1) | list) }}"
+
+    # Package drop-ins (/usr/lib, /lib) are not ours to judge: only /etc and /run count as foreign.
+    - name: Check the limits and the drop-ins read by systemd.
+      ansible.builtin.assert:
+        that:
+          - __mysql_systemd_loaded.NeedDaemonReload == 'no'
+          - mysql_systemd_open_file_limit in [none, ''] or __mysql_systemd_loaded.LimitNOFILE == (mysql_systemd_open_file_limit | string)
+          - mysql_systemd_oom_score_adjust in [none, ''] or __mysql_systemd_loaded.OOMScoreAdjust == (mysql_systemd_oom_score_adjust | string)
+          - not (mysql_systemd_dropin_purge | bool) or __mysql_systemd_foreign | length == 0
+        fail_msg: |
+          systemd does not use what the project asked for on {{ mysql_daemon }}.service.
+          Loaded: LimitNOFILE={{ __mysql_systemd_loaded.LimitNOFILE }} (asked {{ mysql_systemd_open_file_limit }}), OOMScoreAdjust={{ __mysql_systemd_loaded.OOMScoreAdjust }} (asked {{ mysql_systemd_oom_score_adjust }}), NeedDaemonReload={{ __mysql_systemd_loaded.NeedDaemonReload }}.
+          Drop-ins read: {{ __mysql_systemd_loaded.DropInPaths }}
+          Foreign drop-ins (not ours, not in mysql_systemd_dropin_keep): {{ __mysql_systemd_foreign }}
+          Somebody probably ran `systemctl edit`: remove the file and set the value with mysql_systemd_* instead.
+        quiet: true
+      vars:
+        __mysql_systemd_allowed: "{{ ([mysql_systemd_dropin_name] + mysql_systemd_dropin_keep) | map('regex_replace', '^', mysql_systemd_dropin_dir ~ '/') | list }}"
+        __mysql_systemd_foreign: "{{ __mysql_systemd_loaded.DropInPaths.split() | reject('match', '^/(usr/)?lib/systemd/') | difference(__mysql_systemd_allowed) | list }}"

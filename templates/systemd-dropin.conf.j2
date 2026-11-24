@@ -1,0 +1,11 @@
+# Gere par Ansible (CytadelHosting_mysql). Ne pas editer.
+# Ce drop-in est lu apres l'unite du paquet et survit a ses mises a jour.
+# Seul drop-in de {{ mysql_daemon }}.service : pas de `systemctl edit`, changer les variables
+# mysql_systemd_* du projet (un autre drop-in est supprime au prochain run si mysql_systemd_dropin_purge).
+[Service]
+{% if mysql_systemd_open_file_limit not in [none, ''] %}
+LimitNOFILE={{ mysql_systemd_open_file_limit }}
+{% endif %}
+{% if mysql_systemd_oom_score_adjust not in [none, ''] %}
+OOMScoreAdjust={{ mysql_systemd_oom_score_adjust }}
+{% endif %}

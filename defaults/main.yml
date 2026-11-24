@@ -211,6 +211,34 @@ mysql_mariadb_includes_exclude: []
 #                     mysql_max_binlog_size (50-server)
 # A variable that is not set by the project, or set to an empty value, leaves the package line as is.
 
+# systemd drop-in: ONE file that carries the service limits (LimitNOFILE, OOMScoreAdjust).
+# Off by default: nothing is written and nothing changes for existing projects.
+# Same variable names as the former cytadel_mysql role (mysql_systemd_open_file_limit...).
+#   mysql_systemd_dropin_manage   write the drop-in (tasks/systemd-dropin.yml)
+#   mysql_systemd_dropin_name     file name. Default override.conf: the name `systemctl edit` writes,
+#                                 so `systemctl cat` shows our header, and a hand edit is either
+#                                 reverted by the next run or caught by the verify step.
+#   mysql_systemd_dropin_purge    remove every other file of the drop-in directory (one drop-in only):
+#                                 systemd reads only *.conf, the rest are leftovers (.bak, .dpkg-old)
+#   mysql_systemd_dropin_keep     file names the purge leaves alone: the one that the Debian package
+#                                 creates (empty) must not fight with the package
+#   mysql_systemd_dropin_verify   ask systemd what it really loaded and fail if it differs from the
+#                                 variables or if a foreign drop-in is still there (purge on)
+#   mysql_systemd_dropin_restart  restart the service when the drop-in changes. Off: a limit only
+#                                 applies to the process at its next restart, never restart a
+#                                 production database as a side effect.
+# A value set to '' leaves the directive out of the file.
+mysql_systemd_dropin_manage: false
+mysql_systemd_dropin_name: override.conf
+mysql_systemd_dropin_dir: "/etc/systemd/system/{{ mysql_daemon }}.service.d"
+mysql_systemd_open_file_limit: "153600"
+mysql_systemd_oom_score_adjust: "-600"
+mysql_systemd_dropin_purge: false
+mysql_systemd_dropin_keep:
+  - migrated-from-my.cnf-settings.conf
+mysql_systemd_dropin_verify: true
+mysql_systemd_dropin_restart: false
+
 # Databases.
 mysql_databases: []
 #   - name: example

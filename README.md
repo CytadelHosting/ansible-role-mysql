@@ -296,6 +296,20 @@ mysql_hide_passwords: false
 
 Do you need to hide tasks' output which contain passwords during the execution ?
 
+### systemd drop-in (service limits)
+
+`mysql_systemd_dropin_manage: true` writes **one** drop-in, `<mysql_daemon>.service.d/<mysql_systemd_dropin_name>`, with `LimitNOFILE` (`mysql_systemd_open_file_limit`) and `OOMScoreAdjust` (`mysql_systemd_oom_score_adjust`). Off by default: nothing is written. The variable names are those of the former `cytadel_mysql` role, whose drop-in task has to be switched off when this one is on (two roles writing the same file would overwrite each other).
+
+Our file is `override.conf`, the name `systemctl edit` writes by default. systemd reads the drop-ins in alphabetical order and the last one wins, so a second file in the directory would silently beat ours. Keeping a single drop-in is enforced in three layers:
+
+| Layer | Variable | What it does |
+|---|---|---|
+| Converge | `mysql_systemd_dropin_purge: true` | Removes every other file of the directory at each run (`*.conf` read by systemd, and leftovers such as `*.bak`), except `mysql_systemd_dropin_keep` (default: `migrated-from-my.cnf-settings.conf`, created empty by the Debian package and recommended by the package comments). In `--check --diff` the removals are listed. |
+| Naming | `mysql_systemd_dropin_name: override.conf` (default) | Same name as the one `systemctl edit` writes: `systemctl cat mariadb` shows our header, and a hand edit lands in our file. A hand edit is effective until the next run, which reverts it or fails on the verify step. |
+| Verify | `mysql_systemd_dropin_verify: true` (default) | Reloads systemd, asks `systemctl show` what it really loaded and **fails** when `LimitNOFILE` / `OOMScoreAdjust` differ from the variables, when a reload is pending, or (purge on) when a foreign drop-in is still read, e.g. `mysql.service.d/` which is an alias of `mariadb.service.d/`. Skipped in check mode. |
+
+A limit only applies to the process at its next start: `mysql_systemd_dropin_restart` (default `false`) restarts the service when the drop-in changes. Leave it off on a production database and restart in a maintenance window. Nothing technical stops root from running `systemctl edit`; to be told about it, run the role in `--check --diff` on a schedule (the removal shows up as a change) and, outside Ansible, watch the directory with auditd (`-w /etc/systemd/system/mariadb.service.d -p wa`).
+
 ### MariaDB usage
 
 This role works with either MySQL or a compatible version of MariaDB. On RHEL/CentOS 7+, the mariadb database engine was substituted as the default MySQL replacement package. No modifications are necessary though all of the variables still reference 'mysql' instead of mariadb.

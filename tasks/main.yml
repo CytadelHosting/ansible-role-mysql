@@ -23,6 +23,11 @@
 
 # Configure MySQL.
 - ansible.builtin.include_tasks: configure.yml
+
+# systemd limits in one drop-in (off by default, see mysql_systemd_dropin_* in defaults/main.yml).
+- ansible.builtin.include_tasks: systemd-dropin.yml
+  when: mysql_systemd_dropin_manage | bool
+
 - ansible.builtin.include_tasks: secure-installation.yml
 - ansible.builtin.include_tasks: databases.yml
 - ansible.builtin.include_tasks: users.yml
