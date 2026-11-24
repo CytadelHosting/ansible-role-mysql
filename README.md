@@ -164,6 +164,8 @@ Same variable names as `my.cnf.j2` wherever the option exists there (`mysql_max_
 | `max_allowed_packet` | `[mysqld]` · `[mysqldump]` | `mysql_max_allowed_packet` · `mysql_mysqldump_max_allowed_packet` |
 | `ssl_cert`, `ssl_key` | `[mysqld]` · `[client]` | `mysql_ssl_cert`, `mysql_ssl_key` · `mysql_client_ssl_cert`, `mysql_client_ssl_key` |
 
+**Binary log.** Each option lives in exactly one file, so a project include must not repeat it: `log_bin` (`mysql_log_bin`) and `max_binlog_size` (`mysql_max_binlog_size`) are written by `50-server.cnf`, `log-bin-index` (`mysql_log_bin_index`), `binlog_format` (`mysql_binlog_format`) and `binlog_expire_logs_seconds` (`mysql_binlog_expire_logs_seconds`) by `70-cytadel-extra.cnf`. Only the variables set by the project are written (the `ROW` default of `mysql_binlog_format` is ignored, it keeps serving `my.cnf.j2`).
+
 If a project wants the same value everywhere, it sets both variables. Mind that the server reads `[galera]` after `[mysqld]` within `60-galera.cnf` but `70-cytadel-extra.cnf` is read last: when both `[mysqld]` (70) and `[galera]` are set to different values, 70 wins.
 
 Two template sets cover the differences between releases: `10.11` (Debian 12, every 10.x) and `11.8` (Debian 13, reference). They differ by the server group (`[mysqld]` / `[mariadbd]`), `character-set-server` (set active by the 10.11 package only), and the clients file name. To add a release, copy the package files into a new `templates/mariadb_includes/<version>/`, replace the commented options by `{{ m.opt(...) }}` / `{{ m.flag(...) }}` calls and the active ones by `{{ m.act(...) }}` (`_macros.j2`), and register the files in `vars/main.yml`.

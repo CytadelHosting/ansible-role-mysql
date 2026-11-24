@@ -203,8 +203,11 @@ mysql_mariadb_includes_exclude: []
 #                   mysql_galera_default_storage_engine mysql_galera_innodb_autoinc_lock_mode
 #                   mysql_galera_bind_address mysql_galera_innodb_flush_log_at_trx_commit
 #   70-cytadel-extra.cnf (see the file) mysql_port mysql_sql_mode
-#                   mysql_binlog_expire_logs_seconds mysql_slow_query_log_enabled
-#                   and the memory / InnoDB settings of my.cnf.j2
+#                   mysql_slow_query_log_enabled and the memory / InnoDB settings of my.cnf.j2
+#                   Binary log, the whole set (mysql_log_bin itself is written by 50-server.cnf):
+#                     mysql_log_bin (log_bin, 50-server)  mysql_log_bin_index (log-bin-index)
+#                     mysql_binlog_format  mysql_binlog_expire_logs_seconds
+#                     mysql_max_binlog_size (50-server)
 # A variable that is not set by the project, or set to an empty value, leaves the package line as is.
 
 # Databases.
