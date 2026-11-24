@@ -65,8 +65,10 @@ basedir                 = /usr
 {% if 'mysql_slow_query_log_enabled' in mysql_explicit_vars %}
 slow_query_log         = {{ 1 if mysql_slow_query_log_enabled | bool else 0 }}
 {% endif %}
-{{ m.opt('mysql_slow_query_log_file', 'log_slow_query_file    = ', '/var/log/mysql/mariadb-slow.log') }}
-{{ m.opt('mysql_slow_query_time', 'log_slow_query_time    = ', '10') }}
+{#- log_slow_query_file / log_slow_query_time only exist from 10.11: the 10.x servers (10.9...) refuse to start with them.
+    The commented lines stay as in the package; when the variable is set the portable names are written. #}
+{{ m.opt('mysql_slow_query_log_file', 'log_slow_query_file    = ', '/var/log/mysql/mariadb-slow.log', active='slow_query_log_file    = ') }}
+{{ m.opt('mysql_slow_query_time', 'log_slow_query_time    = ', '10', active='long_query_time        = ') }}
 {{ m.opt('mysql_slow_query_log_verbosity', 'log_slow_verbosity     = ', 'query_plan,explain') }}
 {{ m.flag('mysql_log_queries_not_using_indexes', 'log-queries-not-using-indexes') }}
 {{ m.opt('mysql_log_slow_min_examined_row_limit', 'log_slow_min_examined_row_limit = ', '1000') }}

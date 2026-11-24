@@ -25,8 +25,11 @@
       comment  full commented line when it differs from "#" + prefix + default
       value    rendered instead of the variable value (e.g. 1 for general_log)
       unless   value for which the option stays commented (e.g. 'syslog')
+      active   prefix written INSTEAD of `prefix` when the line is active (variable set). The commented line
+               keeps the package spelling; the active one can use a name every 10.x server accepts
+               (log_slow_query_file is unknown before 10.11, slow_query_log_file works everywhere)
 -#}
-{% macro opt(var, prefix, default, quote='', comment='', value=none, unless=none) -%}
+{% macro opt(var, prefix, default, quote='', comment='', value=none, unless=none, active='') -%}
 {%- set found = namespace(current=none) -%}
 {%- for name in ([var] if var is string else var) -%}
 {%- if found.current in [none, ''] and name in mysql_explicit_vars -%}
@@ -35,7 +38,7 @@
 {%- endfor -%}
 {%- set current = found.current -%}
 {%- if current not in [none, ''] and current != unless -%}
-{{ prefix }}{{ quote }}{{ current if value is none else value }}{{ quote }}
+{{ active if active else prefix }}{{ quote }}{{ current if value is none else value }}{{ quote }}
 {%- else -%}
 {{ comment if comment else '#' ~ prefix ~ quote ~ default ~ quote }}
 {%- endif -%}
