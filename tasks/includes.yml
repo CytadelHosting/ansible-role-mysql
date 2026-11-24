@@ -15,12 +15,21 @@
 # Any other absolute path is used as-is.
 # dest_name defaults to the source basename without a trailing .j2.
 # type "template" renders Jinja (historical behaviour). type "file" copies bytes.
+#
+# mysql_config_include_files_absent lists the files to delete (same dest_dir / dest_name):
+# a file moved to a role include or to a variable, or an unmanaged leftover that would
+# duplicate an option. The role never deletes a file on its own, the project asks for it.
 - name: Select the MariaDB package includes to deploy.
   ansible.builtin.set_fact:
     mysql_mariadb_includes_auto: >-
-      {{ __mysql_mariadb_includes_catalog[mysql_mariadb_includes_version]
-         | rejectattr('dest_name', 'in', mysql_mariadb_includes_exclude)
-         | list }}
+      {%- set ns = namespace(selected=[]) -%}
+      {%- for entry in __mysql_mariadb_includes_catalog[mysql_mariadb_includes_version] -%}
+      {%- if entry.dest_name not in mysql_mariadb_includes_exclude
+             and (entry.when_explicit is not defined or (entry.when_explicit | intersect(mysql_explicit_vars) | length) > 0) -%}
+      {%- set ns.selected = ns.selected + [entry] -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ ns.selected }}
   when: mysql_mariadb_includes_manage | bool
 
 - name: Merge the role includes and the project includes.
@@ -128,4 +137,32 @@
   loop_control:
     label: "{{ item.dest }}"
   when: item.type == 'file'
+  notify: restart mysql
+
+- name: Check the include files to remove.
+  ansible.builtin.assert:
+    that:
+      - item.dest_name is defined
+      - item.dest_name | length > 0
+      - "'/' not in item.dest_name"
+      - item.dest_dir is not defined or item.dest_dir in ['conf.d', 'mariadb.conf.d'] or item.dest_dir is match('^/')
+      - (__mysql_include_dirs[item.dest_dir | default('conf.d')] | default(item.dest_dir)) | length > 0
+      - (__mysql_include_dirs[item.dest_dir | default('conf.d')] | default(item.dest_dir)) | regex_replace('/$', '') ~ '/' ~ item.dest_name
+        not in (mysql_config_include_files_resolved | map(attribute='dest') | list)
+    fail_msg: >-
+      mysql_config_include_files_absent entry is invalid or targets a file that is also deployed
+      (dest_name={{ item.dest_name | default('') }}). dest_dir is conf.d, mariadb.conf.d or an
+      absolute path, dest_name is a filename.
+    quiet: true
+  loop: "{{ mysql_config_include_files_absent }}"
+  loop_control:
+    label: "{{ item.dest_name | default('missing dest_name') }}"
+
+- name: Remove the include files that must not exist.
+  ansible.builtin.file:
+    path: "{{ (__mysql_include_dirs[item.dest_dir | default('conf.d')] | default(item.dest_dir)) | regex_replace('/$', '') }}/{{ item.dest_name }}"
+    state: absent
+  loop: "{{ mysql_config_include_files_absent }}"
+  loop_control:
+    label: "{{ item.dest_name }}"
   notify: restart mysql

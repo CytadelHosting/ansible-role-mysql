@@ -5,17 +5,21 @@
   files do not know at all. Package options (bind-address, pid-file,
   expire_logs_days, character-set-server...) are driven in 50-server.cnf itself,
   through m.act(): one line, one place, no override in a later file.
+  performance_schema and monitoring options live in 80-cytadel-monitoring.cnf.
 
   Only the variables set by the project (mysql_explicit_vars) are written.
   70- sorts after the package files (50-, 60-) and before the project
   overrides (90-), so a project include still has the last word.
-  Each entry is (variable, option).
+  Each entry is (variable, option[, kind]); kinds are described in _macros.j2 (rows).
 -#}
+{% import 'mariadb_includes/_macros.j2' as m with context %}
 {% set mysqld_options = [
   ('mysql_port', 'port'),
   ('mysql_sql_mode', 'sql_mode'),
   ('mysql_lower_case_table_names', 'lower_case_table_names'),
+  ('mysql_ignore_db_dirs', 'ignore_db_dirs'),
   ('mysql_event_scheduler_state', 'event_scheduler'),
+  ('mysql_disable_log_bin', 'skip-log-bin', 'flag'),
   ('mysql_log_bin_index', 'log-bin-index'),
   ('mysql_binlog_expire_logs_seconds', 'binlog_expire_logs_seconds'),
   ('mysql_binlog_format', 'binlog_format'),
@@ -26,6 +30,7 @@
   ('mysql_join_buffer_size', 'join_buffer_size'),
   ('mysql_tmp_table_size', 'tmp_table_size'),
   ('mysql_max_heap_table_size', 'max_heap_table_size'),
+  ('mysql_table_definition_cache', 'table_definition_cache'),
   ('mysql_group_concat_max_len', 'group_concat_max_len'),
   ('mysql_wait_timeout', 'wait_timeout'),
   ('mysql_query_cache_type', 'query_cache_type'),
@@ -36,21 +41,17 @@
   ('mysql_innodb_log_buffer_size', 'innodb_log_buffer_size'),
   ('mysql_innodb_flush_log_at_trx_commit', 'innodb_flush_log_at_trx_commit'),
   ('mysql_innodb_lock_wait_timeout', 'innodb_lock_wait_timeout'),
+  ('mysql_innodb_stats_on_metadata', 'innodb_stats_on_metadata'),
 ] %}
 {% set mysqldump_options = [
   ('mysql_mysqldump_max_allowed_packet', 'max_allowed_packet'),
 ] %}
+{% set mysqldump_lines = m.rows(mysqldump_options) %}
 
 [mysqld]
-{% for option in mysqld_options %}
-{% if option[0] in mysql_explicit_vars and lookup('ansible.builtin.vars', option[0]) not in [none, ''] %}
-{{ option[1] }} = {{ lookup('ansible.builtin.vars', option[0]) }}
-{% endif %}
-{% endfor %}
+{{ m.rows(mysqld_options) }}
+{% if mysqldump_lines %}
 
 [mysqldump]
-{% for option in mysqldump_options %}
-{% if option[0] in mysql_explicit_vars and lookup('ansible.builtin.vars', option[0]) not in [none, ''] %}
-{{ option[1] }} = {{ lookup('ansible.builtin.vars', option[0]) }}
+{{ mysqldump_lines }}
 {% endif %}
-{% endfor %}

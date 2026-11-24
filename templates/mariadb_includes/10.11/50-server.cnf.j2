@@ -53,7 +53,7 @@ basedir                 = /usr
 # Both location gets rotated by the cronjob.
 # Be aware that this log type is a performance killer.
 # Recommend only changing this at runtime for short testing periods if needed!
-{{ m.opt('mysql_log', 'general_log_file       = ', '/var/log/mysql/mysql.log', unless='syslog') }}
+{{ m.opt(['mysql_general_log_file', 'mysql_log'], 'general_log_file       = ', '/var/log/mysql/mysql.log', unless='syslog') }}
 {{ m.opt('mysql_log', 'general_log            = ', '1', value='1', unless='syslog') }}
 
 # When running under systemd, error logging goes via stdout/stderr to journald

@@ -17,7 +17,8 @@
 -#}
 
 {#- opt: "key = value" option.
-      var      variable that drives the option
+      var      variable that drives the option, or a list of variables: the first one set wins
+               (general_log_file: mysql_general_log_file, then the legacy mysql_log)
       prefix   text before the value, exactly as in the package file (key, padding, "= ")
       default  package default, shown when the line stays commented
       quote    '"' when the value must be quoted
@@ -26,7 +27,13 @@
       unless   value for which the option stays commented (e.g. 'syslog')
 -#}
 {% macro opt(var, prefix, default, quote='', comment='', value=none, unless=none) -%}
-{%- set current = lookup('ansible.builtin.vars', var) if var in mysql_explicit_vars else none -%}
+{%- set found = namespace(current=none) -%}
+{%- for name in ([var] if var is string else var) -%}
+{%- if found.current in [none, ''] and name in mysql_explicit_vars -%}
+{%- set found.current = lookup('ansible.builtin.vars', name) -%}
+{%- endif -%}
+{%- endfor -%}
+{%- set current = found.current -%}
 {%- if current not in [none, ''] and current != unless -%}
 {{ prefix }}{{ quote }}{{ current if value is none else value }}{{ quote }}
 {%- else -%}
@@ -40,6 +47,33 @@
 {% macro act(var, prefix, default) -%}
 {%- set current = lookup('ansible.builtin.vars', var) if var in mysql_explicit_vars else none -%}
 {{ prefix }}{{ default if current in [none, ''] else current }}
+{%- endmacro %}
+
+{#- rows: the "option = value" lines of the role-owned includes (70-, 80-), only for the variables
+      the project sets (mysql_explicit_vars). Nothing is written for the others.
+      options  list of (variable, option[, kind])
+      kind     (none)  the value as is
+               onoff   ON / OFF from a boolean
+               flag    option without value (skip-log-bin), written when the variable is true
+               quote   value between single quotes
+      A list value repeats the option (ignore_db_dirs, performance-schema-instrument). -#}
+{% macro rows(options) -%}
+{%- set out = namespace(lines=[]) -%}
+{%- for item in options -%}
+{%- if item[0] in mysql_explicit_vars and lookup('ansible.builtin.vars', item[0]) not in [none, ''] -%}
+{%- set raw = lookup('ansible.builtin.vars', item[0]) -%}
+{%- set kind = item[2] | default('') -%}
+{%- if kind == 'flag' -%}
+{%- if raw | bool -%}{%- set out.lines = out.lines + [item[1]] -%}{%- endif -%}
+{%- else -%}
+{%- for value in (raw if (raw is iterable and raw is not string and raw is not mapping) else [raw]) -%}
+{%- set shown = ('ON' if value | bool else 'OFF') if kind == 'onoff' else (("'" ~ value ~ "'") if kind == 'quote' else value) -%}
+{%- set out.lines = out.lines + [item[1] ~ ' = ' ~ shown] -%}
+{%- endfor -%}
+{%- endif -%}
+{%- endif -%}
+{%- endfor -%}
+{{ out.lines | join('\n') }}
 {%- endmacro %}
 
 {#- flag: option without value (skip-name-resolve), enabled by a true variable. -#}

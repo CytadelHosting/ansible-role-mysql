@@ -1,0 +1,14 @@
+{{ ansible_managed | comment }}
+{#
+  Role-owned include: performance_schema and monitoring settings (Zabbix, PMM...).
+  The options are listed once, in __mysql_monitoring_options (vars/main.yml), which
+  also decides whether this file is deployed at all: it is only written for a host
+  that sets at least one of these variables.
+
+  80- sorts after the package files (50-, 60-) and 70-cytadel-extra, and before the
+  project overrides (90-).
+-#}
+{% import 'mariadb_includes/_macros.j2' as m with context %}
+
+[mysqld]
+{{ m.rows(__mysql_monitoring_options) }}

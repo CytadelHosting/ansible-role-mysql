@@ -162,6 +162,16 @@ mysql_config_include_files: []
 #    type: file
 #    dest_dir: conf.d
 
+# Include files to DELETE (same dest_dir / dest_name as above). The role never deletes a file by
+# itself: this is how a project retires a file it used to deploy (now a role include or a variable)
+# or an unmanaged leftover that would duplicate an option. Shown by --check --diff, notifies
+# the restart. A file that is also deployed is refused.
+mysql_config_include_files_absent: []
+#  - dest_name: custom-local.cnf
+#    dest_dir: conf.d
+#  - dest_name: 90-old.cnf
+#    dest_dir: mariadb.conf.d
+
 # Include files of the official MariaDB package (Debian only), driven by variables.
 # false (default): the role deploys only mysql_config_include_files. Nothing changes.
 # true: the role also deploys, in mariadb.conf.d, the include files of the MariaDB
@@ -192,6 +202,8 @@ mysql_mariadb_includes_exclude: []
 #                   mysql_thread_cache_size mysql_myisam_recover_options mysql_max_connections
 #                   mysql_table_open_cache (table_cache is its deprecated alias)
 #                   mysql_log (general_log + general_log_file) mysql_log_error
+#                   mysql_general_log_file (general_log_file alone, general_log stays off;
+#                   wins over mysql_log for the file name)
 #                   mysql_slow_query_log_file mysql_slow_query_time mysql_slow_query_log_verbosity
 #                   mysql_slow_query_log_enabled (bool, writes slow_query_log 1 or 0)
 #                   mysql_log_queries_not_using_indexes (bool) mysql_log_slow_min_examined_row_limit
@@ -203,8 +215,14 @@ mysql_mariadb_includes_exclude: []
 #                   mysql_wsrep_slave_threads mysql_galera_binlog_format
 #                   mysql_galera_default_storage_engine mysql_galera_innodb_autoinc_lock_mode
 #                   mysql_galera_bind_address mysql_galera_innodb_flush_log_at_trx_commit
-#   70-cytadel-extra.cnf (see the file) mysql_port mysql_sql_mode
+#   70-cytadel-extra.cnf (see the file) mysql_port mysql_sql_mode mysql_ignore_db_dirs (string or list)
+#                   mysql_disable_log_bin (bool, skip-log-bin) mysql_table_definition_cache
+#                   mysql_innodb_stats_on_metadata
 #                   and the memory / InnoDB settings of my.cnf.j2
+#   80-cytadel-monitoring.cnf (only deployed when one of them is set; list in vars/main.yml)
+#                   mysql_performance_schema_enabled (bool) mysql_performance_schema_instrument (string or list)
+#                   mysql_performance_schema_consumer_statements_digest (bool)
+#                   mysql_innodb_monitor_enable mysql_log_slow_rate_limit
 #                   Binary log, the whole set (mysql_log_bin itself is written by 50-server.cnf):
 #                     mysql_log_bin (log_bin, 50-server)  mysql_log_bin_index (log-bin-index)
 #                     mysql_binlog_format  mysql_binlog_expire_logs_seconds

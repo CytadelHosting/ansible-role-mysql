@@ -150,7 +150,8 @@ mysql_max_connections: 801
 |---|---|
 | `50-server.cnf`, `50-client.cnf`, `50-mysqld_safe.cnf`, `60-galera.cnf` | Package files. Every commented option is driven by a variable (list in `defaults/main.yml`), and so is every **active** option the package sets (`pid-file`, `bind-address`, `expire_logs_days`, `character-set-server`, `collation-server`): the package value stays unless the project sets the variable. |
 | `50-mysql-clients.cnf` (10.11) / `50-mariadb-clients.cnf` (11.8) | Package files, no option to drive (kept for completeness, the package renamed it in 11.x). |
-| `70-cytadel-extra.cnf` | Role-owned. Carries the `my.cnf.j2` settings the package include files do not know (`port`, `sql_mode`, memory and InnoDB settings, `[mysqldump]`...). An option the package already drives **in the same section** is never repeated here; the same option name in **another section** is written here with its own variable (see below). |
+| `70-cytadel-extra.cnf` | Role-owned. Carries the `my.cnf.j2` settings the package include files do not know (`port`, `sql_mode`, `ignore_db_dirs`, `skip-log-bin`, `table_definition_cache`, memory and InnoDB settings, `[mysqldump]`...). An option the package already drives **in the same section** is never repeated here; the same option name in **another section** is written here with its own variable (see below). |
+| `80-cytadel-monitoring.cnf` | Role-owned, `performance_schema` and monitoring (Zabbix, PMM): `mysql_performance_schema_enabled`, `mysql_performance_schema_instrument`, `mysql_performance_schema_consumer_statements_digest`, `mysql_innodb_monitor_enable`, `mysql_log_slow_rate_limit`. **Deployed only if the project sets one of them**: no empty file on the other hosts. |
 
 Same variable names as `my.cnf.j2` wherever the option exists there (`mysql_max_connections`, `mysql_table_open_cache`, `mysql_log`...), otherwise `mysql_<option>`. `table_cache` is a deprecated alias of `table_open_cache`: the active line is written `table_open_cache`. Options duplicated in `60-galera.cnf` use a `mysql_galera_` prefix so they do not leak into the server group.
 
@@ -167,6 +168,16 @@ Same variable names as `my.cnf.j2` wherever the option exists there (`mysql_max_
 **Binary log.** Each option lives in exactly one file, so a project include must not repeat it: `log_bin` (`mysql_log_bin`) and `max_binlog_size` (`mysql_max_binlog_size`) are written by `50-server.cnf`, `log-bin-index` (`mysql_log_bin_index`), `binlog_format` (`mysql_binlog_format`) and `binlog_expire_logs_seconds` (`mysql_binlog_expire_logs_seconds`) by `70-cytadel-extra.cnf`. Only the variables set by the project are written (the `ROW` default of `mysql_binlog_format` is ignored, it keeps serving `my.cnf.j2`).
 
 If a project wants the same value everywhere, it sets both variables. Mind that the server reads `[galera]` after `[mysqld]` within `60-galera.cnf` but `70-cytadel-extra.cnf` is read last: when both `[mysqld]` (70) and `[galera]` are set to different values, 70 wins.
+
+**Value kinds of 70 and 80.** Booleans are written `ON` / `OFF` (`mysql_performance_schema_enabled: true`), `mysql_disable_log_bin: true` writes the bare option `skip-log-bin` (nothing when false), a list repeats the option (`mysql_ignore_db_dirs: [lost+found, tmp]`, several `performance-schema-instrument`). `mysql_general_log_file` sets only the log file, the general log stays off (`mysql_log` keeps enabling it and still names the file when `mysql_general_log_file` is not set).
+
+**Retire a file.** The role never deletes a file by itself. A project that moves a static include to these variables lists it in `mysql_config_include_files_absent` (visible in `--check --diff`, restart notified, refused if the same file is also deployed):
+
+```yaml
+mysql_config_include_files_absent:
+  - { dest_dir: conf.d, dest_name: custom-local.cnf }
+  - { dest_dir: mariadb.conf.d, dest_name: 90-old.cnf }
+```
 
 Two template sets cover the differences between releases: `10.11` (Debian 12, every 10.x) and `11.8` (Debian 13, reference). They differ by the server group (`[mysqld]` / `[mariadbd]`), `character-set-server` (set active by the 10.11 package only), and the clients file name. To add a release, copy the package files into a new `templates/mariadb_includes/<version>/`, replace the commented options by `{{ m.opt(...) }}` / `{{ m.flag(...) }}` calls and the active ones by `{{ m.act(...) }}` (`_macros.j2`), and register the files in `vars/main.yml`.
 

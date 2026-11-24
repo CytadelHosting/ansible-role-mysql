@@ -10,6 +10,8 @@
 # options are driven in 50-server.cnf itself.
 # Rule: an option present in several sections gets one variable per section, never the
 # same variable twice (mysql_binlog_format in [mysqld], mysql_galera_binlog_format in [galera]).
+# Optional key when_explicit: the file is only deployed when the project sets at least one of
+# these variables (80-cytadel-monitoring.cnf: no empty file on a host that does not use it).
 __mysql_mariadb_includes_catalog:
   '10.11':
     - { src: mariadb_includes/10.11/50-client.cnf.j2, dest_name: 50-client.cnf, dest_dir: mariadb.conf.d, force: true }
@@ -18,6 +20,8 @@ __mysql_mariadb_includes_catalog:
     - { src: mariadb_includes/10.11/50-server.cnf.j2, dest_name: 50-server.cnf, dest_dir: mariadb.conf.d, force: true }
     - { src: mariadb_includes/10.11/60-galera.cnf.j2, dest_name: 60-galera.cnf, dest_dir: mariadb.conf.d, force: true }
     - { src: mariadb_includes/70-cytadel-extra.cnf.j2, dest_name: 70-cytadel-extra.cnf, dest_dir: mariadb.conf.d, force: true }
+    - { src: mariadb_includes/80-cytadel-monitoring.cnf.j2, dest_name: 80-cytadel-monitoring.cnf, dest_dir: mariadb.conf.d, force: true,
+        when_explicit: "{{ __mysql_monitoring_options | map('first') | list }}" }
   '11.8':
     - { src: mariadb_includes/11.8/50-client.cnf.j2, dest_name: 50-client.cnf, dest_dir: mariadb.conf.d, force: true }
     - { src: mariadb_includes/11.8/50-mariadb-clients.cnf.j2, dest_name: 50-mariadb-clients.cnf, dest_dir: mariadb.conf.d, force: true }
@@ -25,7 +29,23 @@ __mysql_mariadb_includes_catalog:
     - { src: mariadb_includes/11.8/50-server.cnf.j2, dest_name: 50-server.cnf, dest_dir: mariadb.conf.d, force: true }
     - { src: mariadb_includes/11.8/60-galera.cnf.j2, dest_name: 60-galera.cnf, dest_dir: mariadb.conf.d, force: true }
     - { src: mariadb_includes/70-cytadel-extra.cnf.j2, dest_name: 70-cytadel-extra.cnf, dest_dir: mariadb.conf.d, force: true }
+    - { src: mariadb_includes/80-cytadel-monitoring.cnf.j2, dest_name: 80-cytadel-monitoring.cnf, dest_dir: mariadb.conf.d, force: true,
+        when_explicit: "{{ __mysql_monitoring_options | map('first') | list }}" }
 
 # Handlers notified when the systemd drop-in changes: the restart is opt-in (a limit applies at the
 # next start of the process, restarting a production database is never a side effect).
 __mysql_systemd_dropin_restart_handlers: "{{ ['restart mysql'] if mysql_systemd_dropin_restart | bool else [] }}"
+
+# Options of 80-cytadel-monitoring.cnf: (variable, option[, kind]), see m.rows in _macros.j2.
+# Defined here, not in the template, because the catalog also reads the variable names.
+__mysql_monitoring_options:
+  - [mysql_performance_schema_enabled, performance_schema, onoff]
+  - [mysql_performance_schema_instrument, performance-schema-instrument, quote]
+  - [mysql_performance_schema_consumer_statements_digest, performance-schema-consumer-statements-digest, onoff]
+  - [mysql_innodb_monitor_enable, innodb_monitor_enable]
+  - [mysql_log_slow_rate_limit, log_slow_rate_limit]
+
+# Directories an include entry can name through dest_dir (anything else is an absolute path).
+__mysql_include_dirs:
+  conf.d: "{{ mysql_config_include_dir }}"
+  mariadb.conf.d: "{{ mysql_config_mariadb_include_dir | default('') }}"
