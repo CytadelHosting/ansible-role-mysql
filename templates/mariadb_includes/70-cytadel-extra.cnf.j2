@@ -9,14 +9,13 @@
   Only the variables set by the project (mysql_explicit_vars) are written.
   70- sorts after the package files (50-, 60-) and before the project
   overrides (90-), so a project include still has the last word.
-  Each entry is (variable, option[, 'bool']): 'bool' writes 1 or 0.
+  Each entry is (variable, option).
 -#}
 {% set mysqld_options = [
   ('mysql_port', 'port'),
   ('mysql_sql_mode', 'sql_mode'),
   ('mysql_lower_case_table_names', 'lower_case_table_names'),
   ('mysql_event_scheduler_state', 'event_scheduler'),
-  ('mysql_slow_query_log_enabled', 'slow_query_log', 'bool'),
   ('mysql_log_bin_index', 'log-bin-index'),
   ('mysql_binlog_expire_logs_seconds', 'binlog_expire_logs_seconds'),
   ('mysql_binlog_format', 'binlog_format'),
@@ -45,7 +44,7 @@
 [mysqld]
 {% for option in mysqld_options %}
 {% if option[0] in mysql_explicit_vars and lookup('ansible.builtin.vars', option[0]) not in [none, ''] %}
-{{ option[1] }} = {{ (1 if lookup('ansible.builtin.vars', option[0]) | bool else 0) if option | length > 2 else lookup('ansible.builtin.vars', option[0]) }}
+{{ option[1] }} = {{ lookup('ansible.builtin.vars', option[0]) }}
 {% endif %}
 {% endfor %}
 
